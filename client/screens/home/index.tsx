@@ -418,7 +418,7 @@ export default function HomeScreen() {
                 end={{ x: 1, y: 1 }}
                 style={styles.quickActionGradient}
               >
-                <FontAwesome6 name="arrow-trend-up" size={18} color="#fff" />
+                <FontAwesome6 name="arrow-trend-up" size={20} color="#fff" />
                 <Text style={styles.quickActionText}>看涨</Text>
               </LinearGradient>
             </TouchableOpacity>
@@ -433,7 +433,7 @@ export default function HomeScreen() {
                 end={{ x: 1, y: 1 }}
                 style={styles.quickActionGradient}
               >
-                <FontAwesome6 name="arrow-trend-down" size={18} color="#fff" />
+                <FontAwesome6 name="arrow-trend-down" size={20} color="#fff" />
                 <Text style={styles.quickActionText}>看跌</Text>
               </LinearGradient>
             </TouchableOpacity>
@@ -448,7 +448,7 @@ export default function HomeScreen() {
                 end={{ x: 1, y: 1 }}
                 style={styles.quickActionGradient}
               >
-                <FontAwesome6 name="bolt" size={18} color="#fff" />
+                <FontAwesome6 name="bolt" size={20} color="#fff" />
                 <Text style={styles.quickActionText}>快速</Text>
               </LinearGradient>
             </TouchableOpacity>
@@ -1039,13 +1039,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 14,
+    gap: 10,
+    paddingVertical: 16,
+    paddingHorizontal: 12,
   },
   quickActionText: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '700',
     color: '#fff',
+    letterSpacing: 0.5,
   },
   // Price Card
   priceCard: {
