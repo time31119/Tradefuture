@@ -12,6 +12,7 @@ import {
 import { Screen } from '@/components/Screen';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
+import { useSafeRouter } from '@/hooks/useSafeRouter';
 import { useWallet } from '@/contexts/WalletContext';
 
 const EXPO_PUBLIC_BACKEND_BASE_URL = process.env.EXPO_PUBLIC_BACKEND_BASE_URL || '';
@@ -64,6 +65,7 @@ interface MarketMakerBenefits {
 
 export default function MarketMakerScreen() {
   const { wallet } = useWallet();
+  const router = useSafeRouter();
   const address = wallet?.address;
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -192,11 +194,16 @@ export default function MarketMakerScreen() {
       >
         {/* Header */}
         <View style={styles.header}>
-          <View style={styles.headerIcon}>
-            <FontAwesome6 name="chart-line" size={28} color={COLORS.primary} />
+          <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+            <FontAwesome6 name="arrow-left" size={20} color={COLORS.textPrimary} />
+          </TouchableOpacity>
+          <View style={styles.headerContent}>
+            <View style={styles.headerIcon}>
+              <FontAwesome6 name="chart-line" size={28} color={COLORS.primary} />
+            </View>
+            <Text style={styles.headerTitle}>做市商中心</Text>
+            <Text style={styles.headerSubtitle}>Market Maker Center</Text>
           </View>
-          <Text style={styles.headerTitle}>做市商中心</Text>
-          <Text style={styles.headerSubtitle}>Market Maker Center</Text>
         </View>
 
         {/* Status Card */}
@@ -433,8 +440,22 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   header: {
+    flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 24,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: COLORS.surface,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  headerContent: {
+    flex: 1,
+    alignItems: 'center',
   },
   headerIcon: {
     width: 56,

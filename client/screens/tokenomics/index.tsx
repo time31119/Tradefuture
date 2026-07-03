@@ -6,9 +6,11 @@ import {
   ScrollView,
   ActivityIndicator,
   RefreshControl,
+  TouchableOpacity,
 } from 'react-native';
 import { Screen } from '@/components/Screen';
 import { FontAwesome6 } from '@expo/vector-icons';
+import { useSafeRouter } from '@/hooks/useSafeRouter';
 
 const EXPO_PUBLIC_BACKEND_BASE_URL = process.env.EXPO_PUBLIC_BACKEND_BASE_URL || '';
 
@@ -99,6 +101,7 @@ interface MarketMakerInfo {
 }
 
 export default function TokenomicsScreen() {
+  const router = useSafeRouter();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [tokenInfo, setTokenInfo] = useState<TokenInfo | null>(null);
@@ -169,8 +172,13 @@ export default function TokenomicsScreen() {
       >
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>TFT 代币经济</Text>
-          <Text style={styles.headerSubtitle}>TradeFuture Token Economics</Text>
+          <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+            <FontAwesome6 name="arrow-left" size={20} color={COLORS.textPrimary} />
+          </TouchableOpacity>
+          <View style={styles.headerContent}>
+            <Text style={styles.headerTitle}>TFT 代币经济</Text>
+            <Text style={styles.headerSubtitle}>TradeFuture Token Economics</Text>
+          </View>
         </View>
 
         {/* Token Overview */}
@@ -505,7 +513,21 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   header: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: 24,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: COLORS.surface,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  headerContent: {
+    flex: 1,
     alignItems: 'center',
   },
   headerTitle: {

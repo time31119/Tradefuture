@@ -14,6 +14,7 @@ import { FontAwesome6 } from '@expo/vector-icons';
 import { Screen } from '@/components/Screen';
 import { useWallet } from '@/contexts/WalletContext';
 import { useFocusEffect } from 'expo-router';
+import { useSafeRouter } from '@/hooks/useSafeRouter';
 import { COLORS } from '@/utils/theme';
 
 const EXPO_PUBLIC_BACKEND_BASE_URL = process.env.EXPO_PUBLIC_BACKEND_BASE_URL || 'http://localhost:9091';
@@ -37,6 +38,7 @@ interface SwapQuote {
 }
 
 export default function SwapScreen() {
+  const router = useSafeRouter();
   const { isConnected } = useWallet();
   const [balances, setBalances] = useState<Balances | null>(null);
   const [quote, setQuote] = useState<SwapQuote | null>(null);
@@ -212,8 +214,13 @@ export default function SwapScreen() {
       >
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.title}>兑换</Text>
-          <Text style={styles.subtitle}>TFT / USDT 双向兑换</Text>
+          <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+            <FontAwesome6 name="arrow-left" size={20} color={COLORS.textPrimary} />
+          </TouchableOpacity>
+          <View style={styles.headerContent}>
+            <Text style={styles.title}>兑换</Text>
+            <Text style={styles.subtitle}>TFT / USDT 双向兑换</Text>
+          </View>
         </View>
 
         {/* Balances */}
@@ -409,7 +416,17 @@ const styles = StyleSheet.create({
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.background },
   scrollView: { flex: 1 },
   scrollContent: { paddingTop: 56, paddingBottom: 120, paddingHorizontal: 16 },
-  header: { marginBottom: 20 },
+  header: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: COLORS.surface,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  headerContent: { flex: 1 },
   title: { fontSize: 20, fontWeight: '700', color: COLORS.textPrimary },
   subtitle: { fontSize: 12, color: COLORS.textSecondary, marginTop: 2 },
   // Balances

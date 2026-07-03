@@ -15,6 +15,7 @@ import { FontAwesome6 } from '@expo/vector-icons';
 import { Screen } from '@/components/Screen';
 import { useWallet } from '@/contexts/WalletContext';
 import { useFocusEffect } from 'expo-router';
+import { useSafeRouter } from '@/hooks/useSafeRouter';
 import { COLORS } from '@/utils/theme';
 
 const EXPO_PUBLIC_BACKEND_BASE_URL = process.env.EXPO_PUBLIC_BACKEND_BASE_URL || 'http://localhost:9091';
@@ -54,6 +55,7 @@ interface NodeData {
 type RewardFilter = 'all' | 'node' | 'lp';
 
 export default function NodeScreen() {
+  const router = useSafeRouter();
   const { isConnected } = useWallet();
   const [data, setData] = useState<NodeData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -256,8 +258,13 @@ export default function NodeScreen() {
       >
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.title}>节点合伙人</Text>
-          <Text style={styles.subtitle}>获取协议收益分红</Text>
+          <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+            <FontAwesome6 name="arrow-left" size={20} color={COLORS.textPrimary} />
+          </TouchableOpacity>
+          <View style={styles.headerContent}>
+            <Text style={styles.title}>节点合伙人</Text>
+            <Text style={styles.subtitle}>获取协议收益分红</Text>
+          </View>
         </View>
 
         {/* Node Stats */}
@@ -874,7 +881,17 @@ const styles = StyleSheet.create({
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.background },
   scrollView: { flex: 1 },
   scrollContent: { paddingTop: 56, paddingBottom: 120, paddingHorizontal: 16 },
-  header: { marginBottom: 20 },
+  header: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: COLORS.surface,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  headerContent: { flex: 1 },
   title: { fontSize: 24, fontWeight: '700', color: COLORS.textPrimary, letterSpacing: 0.5 },
   subtitle: { fontSize: 13, color: COLORS.textSecondary, marginTop: 4 },
 
