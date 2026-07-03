@@ -416,7 +416,7 @@ export default function ProfileScreen() {
             <View style={styles.posterHeader}>
               <Text style={styles.posterTitle}>邀请海报</Text>
               <TouchableOpacity onPress={() => setShowPoster(false)}>
-                <FontAwesome6 name="times" size={20} color={COLORS.textSecondary} />
+                <FontAwesome6 name="xmark" size={20} color={COLORS.textSecondary} />
               </TouchableOpacity>
             </View>
             <View style={styles.posterContent}>
@@ -441,7 +441,7 @@ export default function ProfileScreen() {
             </View>
             <View style={styles.posterActions}>
               <TouchableOpacity style={styles.posterShareBtn} onPress={handleSharePoster}>
-                <FontAwesome6 name="share-alt" size={16} color={COLORS.background} />
+                <FontAwesome6 name="share-nodes" size={16} color={COLORS.background} />
                 <Text style={styles.posterShareText}>分享邀请</Text>
               </TouchableOpacity>
             </View>

@@ -519,6 +519,233 @@ app.post('/api/v1/wallet/connect', (req, res) => {
   });
 });
 
+// ==================== Token Economics API ====================
+
+// GET /api/v1/token/info - Token information
+app.get('/api/v1/token/info', (req, res) => {
+  res.json({
+    success: true,
+    data: {
+      name: 'TradeFuture Token',
+      symbol: 'TFT',
+      chain: 'BSC (BEP-20)',
+      initialSupply: 11000000,
+      currentSupply: 10850000, // Simulated current supply
+      totalBurned: 150000,
+      taxRate: 6, // 6% transaction tax
+      taxDistribution: {
+        nodeDividends: 3, // 3%
+        operations: 1, // 1%
+        marketMakers: 1, // 1%
+        autoBurn: 1, // 1%
+      },
+      burnMechanism: {
+        tier1: { threshold: 5000000, rate: 0.5, description: '≥ 5,000,000: 0.5%/小时' },
+        tier2: { threshold: 2000000, rate: 0.05, description: '2,000,000 ~ 4,999,999: 0.05%/小时' },
+        tier3: { threshold: 50100, rate: 0.005, description: '50,100 ~ 1,999,999: 0.005%/小时' },
+        stopThreshold: 50000, // 销毁至50,000枚停止
+      },
+      teamLock: {
+        amount: 1000000,
+        duration: 50, // months
+        releasePerMonth: 2, // 2% per month
+        released: 200000,
+        locked: 800000,
+      },
+      tftPrice: 0.01, // USDT
+    },
+  });
+});
+
+// GET /api/v1/token/burn-info - Burn mechanism info
+app.get('/api/v1/token/burn-info', (req, res) => {
+  const currentSupply = 10850000;
+  let currentTier = 1;
+  let burnRate = 0;
+  
+  if (currentSupply >= 5000000) {
+    currentTier = 1;
+    burnRate = 0.5;
+  } else if (currentSupply >= 2000000) {
+    currentTier = 2;
+    burnRate = 0.05;
+  } else if (currentSupply >= 50100) {
+    currentTier = 3;
+    burnRate = 0.005;
+  }
+  
+  res.json({
+    success: true,
+    data: {
+      currentSupply,
+      currentTier,
+      burnRate,
+      burnPerHour: currentSupply * burnRate / 100,
+      burnPerDay: currentSupply * burnRate / 100 * 24,
+      totalBurned: 150000,
+      targetSupply: 50000,
+      nextBurnTime: Date.now() + 3600000, // 1 hour from now
+    },
+  });
+});
+
+// GET /api/v1/token/tax-distribution - Tax distribution info
+app.get('/api/v1/token/tax-distribution', (req, res) => {
+  res.json({
+    success: true,
+    data: {
+      totalTaxRate: 6,
+      distribution: [
+        { recipient: '节点分红', percentage: 3, description: '按节点权重分配' },
+        { recipient: '运营团队', percentage: 1, description: '运营管理费用' },
+        { recipient: '做市商分红', percentage: 1, description: '平均分配给做市商' },
+        { recipient: '自动销毁', percentage: 1, description: '购买TFT并发送至黑洞地址' },
+      ],
+      lastDistribution: {
+        timestamp: Date.now() - 3600000,
+        nodeDividends: 450,
+        operations: 150,
+        marketMakers: 150,
+        autoBurn: 150,
+      },
+    },
+  });
+});
+
+// ==================== VIP Economics API ====================
+
+// GET /api/v1/vip/info - VIP system info
+app.get('/api/v1/vip/info', (req, res) => {
+  res.json({
+    success: true,
+    data: {
+      activationFee: 100, // USDT
+      immediateReturn: 20, // USDT equivalent TFT
+      feeDistribution: {
+        nodeDividends: 3, // 3%
+        operations: 1, // 1%
+        marketMakers: 1, // 1%
+        autoBurn: 5, // 5%
+        levelRewards: 20, // 20% - 见点奖励
+        directReferral: 50, // 50% - 直推奖励
+        activatorReturn: 20, // 20% - 返还激活者
+      },
+      benefits: {
+        predictionLimit: 'unlimited', // VIP可无限次预测
+        insurancePayout: 40, // 保险仓赔付比例
+      },
+      levelRewards: {
+        maxLevels: 20,
+        rewardPerLevel: 1, // USDT per level
+        totalPotential: 20, // USDT total
+      },
+    },
+  });
+});
+
+// ==================== Node Economics API ====================
+
+// GET /api/v1/node/economics - Node economics info
+app.get('/api/v1/node/economics', (req, res) => {
+  res.json({
+    success: true,
+    data: {
+      acquisitionMethods: [
+        {
+          method: 'burn',
+          description: '销毁TFT获取节点',
+          rules: [
+            { amount: 100000, nodes: 1, description: '销毁100,000 TFT = 1个节点' },
+            { amount: 200000, nodes: 2, description: '销毁200,000 TFT = 2个节点' },
+          ],
+        },
+        {
+          method: 'lp',
+          description: '添加流动性获取节点',
+          rules: [
+            { tft: 50000, nodes: 1, description: '50,000 TFT + 等值USDT = 1个节点' },
+            { tft: 100000, nodes: 2, description: '100,000 TFT + 等值USDT = 2个节点' },
+          ],
+        },
+        {
+          method: 'gift',
+          description: '推荐奖励赠送节点',
+          rules: [
+            { threshold: 30000, nodes: 1, description: '推荐奖励达到30,000 USDT = 1个节点' },
+          ],
+        },
+      ],
+      lpLockup: {
+        totalPeriods: 50,
+        unlockInterval: 30, // days
+        unlockPerPeriod: 2, // 2%
+        totalLocked: 50000,
+        nextUnlock: {
+          amount: 1000,
+          daysUntil: 3,
+        },
+      },
+      dividends: {
+        taxShare: 3, // 3% of transaction tax
+        vipFeeShare: 3, // 3% of VIP activation fee
+      },
+    },
+  });
+});
+
+// ==================== Market Maker Economics API ====================
+
+// GET /api/v1/market-maker/info - Market maker info
+app.get('/api/v1/market-maker/info', (req, res) => {
+  res.json({
+    success: true,
+    data: {
+      qualification: {
+        criteria1: {
+          description: '直推10人，每人≥$200，团队≥$2,000',
+          minReferrals: 10,
+          minPerPerson: 200,
+          minTotal: 2000,
+        },
+        criteria2: {
+          description: '个人VIP收益≥$500',
+          minVIPIncome: 500,
+        },
+      },
+      benefits: {
+        subordinateReward: 0.3, // 0.3% from subordinate predictions
+        taxDividend: 1, // 1% of transaction tax
+        vipFeeDividend: 1, // 1% of VIP activation fee
+      },
+    },
+  });
+});
+
+// ==================== Prediction Market Economics API ====================
+
+// GET /api/v1/prediction/economics - Prediction market info
+app.get('/api/v1/prediction/economics', (req, res) => {
+  res.json({
+    success: true,
+    data: {
+      cycleDuration: 5, // minutes
+      poolDistribution: {
+        winnerShare: 80, // 80% to winners
+        insuranceShare: 20, // 20% to insurance pool
+      },
+      insurancePool: {
+        payoutRate: 40, // 40% of bet amount in TFT
+        currentBalance: 125678,
+        todayInjection: 234,
+      },
+      participation: {
+        regular: { limit: 1, description: '普通账户每轮限1次' },
+        vip: { limit: 'unlimited', description: 'VIP账户无限次' },
+      },
+    },
+  });
+});
+
 app.listen(port, () => {
   console.log(`Server listening at http://localhost:${port}/`);
 });

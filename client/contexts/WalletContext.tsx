@@ -46,6 +46,28 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     address: address as `0x${string}`,
   });
 
+  // 连接后端
+  const connectToBackend = useCallback(async (walletAddress: string) => {
+    try {
+      const response = await fetch(`${EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/wallet/connect`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ address: walletAddress }),
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setWallet(prev => prev ? {
+          ...prev,
+          tftBalance: data.data?.tftBalance || '0',
+          usdtBalance: data.data?.usdtBalance || '0',
+        } : null);
+      }
+    } catch (error) {
+      console.error('Failed to connect to backend:', error);
+    }
+  }, []);
+
   // 当wagmi连接状态变化时更新wallet
   useEffect(() => {
     if (wagmiConnected && address) {
@@ -69,29 +91,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     } else {
       setWallet(null);
     }
-  }, [wagmiConnected, address, chainId, nativeBalance]);
-
-  // 连接后端
-  const connectToBackend = async (walletAddress: string) => {
-    try {
-      const response = await fetch(`${EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/wallet/connect`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ address: walletAddress }),
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        setWallet(prev => prev ? {
-          ...prev,
-          tftBalance: data.data?.tftBalance || '0',
-          usdtBalance: data.data?.usdtBalance || '0',
-        } : null);
-      }
-    } catch (error) {
-      console.error('Failed to connect to backend:', error);
-    }
-  };
+  }, [wagmiConnected, address, chainId, nativeBalance, connectToBackend]);
 
   // 刷新余额
   const refreshBalances = useCallback(async () => {
