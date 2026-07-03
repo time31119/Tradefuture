@@ -48,11 +48,12 @@ interface PredictionData {
 }
 
 interface KlineData {
-  time: string;
+  timestamp: number;
   open: number;
   high: number;
   low: number;
   close: number;
+  volume: number;
 }
 
 interface BtcPrice {
@@ -244,7 +245,7 @@ export default function PredictScreen() {
 
   const chartData = klines.map((k) => ({
     value: k.close,
-    label: k.time.slice(-5),
+    label: new Date(k.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
   }));
 
   if (loading) {
