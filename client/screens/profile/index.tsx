@@ -15,7 +15,7 @@ import { useWallet } from '@/contexts/WalletContext';
 import { useFocusEffect } from 'expo-router';
 import { COLORS } from '@/utils/theme';
 
-const EXPO_PUBLIC_BACKEND_BASE_URL = process.env.EXPO_PUBLIC_BACKEND_BASE_URL;
+const EXPO_PUBLIC_BACKEND_BASE_URL = process.env.EXPO_PUBLIC_BACKEND_BASE_URL || 'http://localhost:9091';
 
 interface ProfileData {
   address: string;
