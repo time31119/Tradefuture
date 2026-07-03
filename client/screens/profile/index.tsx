@@ -83,7 +83,7 @@ export default function ProfileScreen() {
       });
       const result = await res.json();
       if (result.success) {
-        Alert.alert('Success', `Claimed ${result.data.claimed} TFT`);
+        Alert.alert('成功', `已领取 ${result.data.claimed} TFT`);
         fetchProfile();
       }
     } catch (error) {
@@ -95,7 +95,7 @@ export default function ProfileScreen() {
 
   const handleCopyInvite = () => {
     if (!profile) return;
-    Alert.alert('Copied', `Invite link copied: ${profile.inviteCode}`);
+    Alert.alert('已复制', `邀请链接已复制: ${profile.inviteCode}`);
   };
 
   if (loading) {
@@ -127,22 +127,22 @@ export default function ProfileScreen() {
               </View>
               <View style={styles.userInfo}>
                 <Text style={styles.userAddress}>
-                  {isConnected ? wallet?.shortAddress : 'Not Connected'}
+                  {isConnected ? wallet?.shortAddress : '未连接'}
                 </Text>
                 {profile?.isVIP ? (
                   <View style={styles.vipBadge}>
                     <FontAwesome6 name="crown" size={10} color={COLORS.primary} />
-                    <Text style={styles.vipBadgeText}>VIP · {profile.vipDaysLeft} days left</Text>
+                    <Text style={styles.vipBadgeText}>VIP · 剩余 {profile.vipDaysLeft} 天</Text>
                   </View>
                 ) : (
                   <View style={styles.normalBadge}>
-                    <Text style={styles.normalBadgeText}>Standard Account</Text>
+                    <Text style={styles.normalBadgeText}>普通账户</Text>
                   </View>
                 )}
               </View>
             </View>
             <View style={styles.accountValue}>
-              <Text style={styles.accountValueLabel}>Total Assets</Text>
+              <Text style={styles.accountValueLabel}>资产总值</Text>
               <Text style={styles.accountValueAmount}>
                 ${isConnected && profile ? profile.accountValue.toLocaleString() : '--'}
               </Text>
@@ -152,32 +152,32 @@ export default function ProfileScreen() {
 
         {/* VIP Management */}
         <View style={styles.vipCard}>
-          <Text style={styles.vipTitle}>VIP Membership</Text>
+          <Text style={styles.vipTitle}>VIP会员</Text>
           {profile?.isVIP ? (
             <View>
               <View style={styles.vipBenefits}>
                 <View style={styles.vipBenefitItem}>
                   <FontAwesome6 name="circle-check" size={12} color={COLORS.success} />
-                  <Text style={styles.vipBenefitText}>Unlimited predictions</Text>
+                  <Text style={styles.vipBenefitText}>无限次预测</Text>
                 </View>
                 <View style={styles.vipBenefitItem}>
                   <FontAwesome6 name="circle-check" size={12} color={COLORS.success} />
-                  <Text style={styles.vipBenefitText}>Priority settlement</Text>
+                  <Text style={styles.vipBenefitText}>优先结算</Text>
                 </View>
                 <View style={styles.vipBenefitItem}>
                   <FontAwesome6 name="circle-check" size={12} color={COLORS.success} />
-                  <Text style={styles.vipBenefitText}>Exclusive support</Text>
+                  <Text style={styles.vipBenefitText}>专属客服通道</Text>
                 </View>
                 <View style={styles.vipBenefitItem}>
                   <FontAwesome6 name="circle-check" size={12} color={COLORS.success} />
-                  <Text style={styles.vipBenefitText}>Referral bonus boost</Text>
+                  <Text style={styles.vipBenefitText}>邀请奖励加成</Text>
                 </View>
               </View>
               <Text style={styles.vipExpiry}>
-                Expires: {profile.vipExpiry}
+                到期时间: {profile.vipExpiry}
               </Text>
               <TouchableOpacity style={styles.renewBtn}>
-                <Text style={styles.renewBtnText}>Renew VIP · $100 USDT</Text>
+                <Text style={styles.renewBtnText}>续费VIP · $100 USDT</Text>
               </TouchableOpacity>
             </View>
           ) : (
@@ -185,15 +185,15 @@ export default function ProfileScreen() {
               <View style={styles.vipBenefits}>
                 <View style={styles.vipBenefitItem}>
                   <FontAwesome6 name="circle-check" size={12} color={COLORS.success} />
-                  <Text style={styles.vipBenefitText}>Unlimited predictions</Text>
+                  <Text style={styles.vipBenefitText}>无限次预测</Text>
                 </View>
                 <View style={styles.vipBenefitItem}>
                   <FontAwesome6 name="circle-check" size={12} color={COLORS.success} />
-                  <Text style={styles.vipBenefitText}>Priority settlement</Text>
+                  <Text style={styles.vipBenefitText}>优先结算</Text>
                 </View>
                 <View style={styles.vipBenefitItem}>
                   <FontAwesome6 name="circle-check" size={12} color={COLORS.success} />
-                  <Text style={styles.vipBenefitText}>Exclusive support</Text>
+                  <Text style={styles.vipBenefitText}>专属客服通道</Text>
                 </View>
               </View>
               <TouchableOpacity style={styles.activateBtn}>
@@ -203,7 +203,7 @@ export default function ProfileScreen() {
                   end={{ x: 1, y: 0 }}
                   style={styles.activateGradient}
                 >
-                  <Text style={styles.activateBtnText}>Become VIP · $100 USDT</Text>
+                  <Text style={styles.activateBtnText}>成为VIP · $100 USDT</Text>
                 </LinearGradient>
               </TouchableOpacity>
             </View>
@@ -212,42 +212,42 @@ export default function ProfileScreen() {
 
         {/* Invite Section */}
         <View style={styles.inviteCard}>
-          <Text style={styles.inviteTitle}>Referral Program</Text>
+          <Text style={styles.inviteTitle}>邀请推荐</Text>
           <View style={styles.inviteInfo}>
             <View style={styles.inviteRow}>
-              <Text style={styles.inviteLabel}>Inviter:</Text>
-              <Text style={styles.inviteValue}>{profile?.inviter || 'None'}</Text>
+              <Text style={styles.inviteLabel}>邀请人:</Text>
+              <Text style={styles.inviteValue}>{profile?.inviter || '无'}</Text>
             </View>
             <View style={styles.inviteRow}>
-              <Text style={styles.inviteLabel}>Your Code:</Text>
+              <Text style={styles.inviteLabel}>我的邀请码:</Text>
               <Text style={styles.inviteCode}>{profile?.inviteCode || '--'}</Text>
             </View>
           </View>
           <View style={styles.inviteActions}>
             <TouchableOpacity style={styles.inviteActionBtn} onPress={handleCopyInvite}>
               <FontAwesome6 name="copy" size={12} color={COLORS.primary} />
-              <Text style={styles.inviteActionText}>Copy Link</Text>
+              <Text style={styles.inviteActionText}>复制链接</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.inviteActionBtn}>
               <FontAwesome6 name="image" size={12} color={COLORS.primary} />
-              <Text style={styles.inviteActionText}>Poster</Text>
+              <Text style={styles.inviteActionText}>邀请海报</Text>
             </TouchableOpacity>
           </View>
           <View style={styles.inviteStats}>
             <View style={styles.inviteStatItem}>
               <Text style={styles.inviteStatValue}>{profile?.directReferrals || 0}</Text>
-              <Text style={styles.inviteStatLabel}>Direct Referrals</Text>
+              <Text style={styles.inviteStatLabel}>直推人数</Text>
             </View>
             <View style={styles.inviteStatItem}>
               <Text style={styles.inviteStatValue}>${(profile?.teamVolume || 0).toLocaleString()}</Text>
-              <Text style={styles.inviteStatLabel}>Team Volume</Text>
+              <Text style={styles.inviteStatLabel}>团队预测额</Text>
             </View>
           </View>
         </View>
 
         {/* Team Center */}
         <View style={styles.teamSection}>
-          <Text style={styles.sectionTitle}>Team Members</Text>
+          <Text style={styles.sectionTitle}>团队成员</Text>
           {profile?.teamMembers.slice(0, 5).map((member) => (
             <View key={member.id} style={styles.teamItem}>
               <View style={styles.teamMemberLeft}>
@@ -256,7 +256,7 @@ export default function ProfileScreen() {
                 </View>
                 <View>
                   <Text style={styles.teamAddress}>{member.address}</Text>
-                  <Text style={styles.teamLevel}>Level {member.level}</Text>
+                  <Text style={styles.teamLevel}>等级 {member.level}</Text>
                 </View>
               </View>
               <View style={styles.teamMemberRight}>
@@ -267,7 +267,7 @@ export default function ProfileScreen() {
           ))}
           {profile && profile.teamMembers.length > 5 && (
             <TouchableOpacity style={styles.viewAllBtn}>
-              <Text style={styles.viewAllText}>View All Members →</Text>
+              <Text style={styles.viewAllText}>查看全部成员 →</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -276,11 +276,11 @@ export default function ProfileScreen() {
         <View style={styles.rewardCard}>
           <View style={styles.rewardInfo}>
             <View>
-              <Text style={styles.rewardLabel}>Total Referral Rewards</Text>
+              <Text style={styles.rewardLabel}>累计推荐奖励</Text>
               <Text style={styles.rewardValue}>{profile?.totalReferralReward?.toFixed(2) || '0'} TFT</Text>
             </View>
             <View style={styles.rewardPending}>
-              <Text style={styles.rewardPendingLabel}>Pending</Text>
+              <Text style={styles.rewardPendingLabel}>待领取</Text>
               <Text style={styles.rewardPendingValue}>{profile?.pendingReferralReward?.toFixed(2) || '0'} TFT</Text>
             </View>
           </View>
@@ -293,7 +293,7 @@ export default function ProfileScreen() {
               <ActivityIndicator color={COLORS.primary} size="small" />
             ) : (
               <Text style={styles.claimRewardText}>
-                {!isConnected ? 'Connect Wallet' : 'Claim Rewards'}
+                {!isConnected ? '连接钱包' : '领取奖励'}
               </Text>
             )}
           </TouchableOpacity>
@@ -305,26 +305,26 @@ export default function ProfileScreen() {
             <View style={styles.functionIconContainer}>
               <FontAwesome6 name="cubes" size={18} color={COLORS.primary} />
             </View>
-            <Text style={styles.functionText}>My Nodes</Text>
+            <Text style={styles.functionText}>我的节点</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.functionBtn}>
             <View style={styles.functionIconContainer}>
               <FontAwesome6 name="book" size={18} color={COLORS.primary} />
             </View>
-            <Text style={styles.functionText}>Tutorial</Text>
+            <Text style={styles.functionText}>使用教程</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.functionBtn}>
             <View style={styles.functionIconContainer}>
               <FontAwesome6 name="gear" size={18} color={COLORS.primary} />
             </View>
-            <Text style={styles.functionText}>Settings</Text>
+            <Text style={styles.functionText}>设置</Text>
           </TouchableOpacity>
         </View>
 
         {/* Disconnect Button */}
         {isConnected && (
           <TouchableOpacity style={styles.disconnectBtn} onPress={disconnect}>
-            <Text style={styles.disconnectText}>Disconnect Wallet</Text>
+            <Text style={styles.disconnectText}>断开钱包</Text>
           </TouchableOpacity>
         )}
       </ScrollView>

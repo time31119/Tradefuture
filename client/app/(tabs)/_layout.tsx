@@ -40,7 +40,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Home',
+          title: '首页',
           tabBarIcon: ({ color, focused }) => (
             <FontAwesome6
               name="chart-line"
@@ -53,7 +53,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="predict"
         options={{
-          title: 'Predict',
+          title: '预测',
           tabBarIcon: ({ color, focused }) => (
             <FontAwesome6
               name="bolt"
@@ -66,7 +66,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="node"
         options={{
-          title: 'Node',
+          title: '节点',
           tabBarIcon: ({ color, focused }) => (
             <FontAwesome6
               name="cubes"
@@ -79,7 +79,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="swap"
         options={{
-          title: 'Swap',
+          title: '兑换',
           tabBarIcon: ({ color, focused }) => (
             <FontAwesome6
               name="arrows-rotate"
@@ -92,7 +92,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="profile"
         options={{
-          title: 'Profile',
+          title: '我的',
           tabBarIcon: ({ color, focused }) => (
             <FontAwesome6
               name="user"

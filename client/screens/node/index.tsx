@@ -69,7 +69,7 @@ export default function NodeScreen() {
 
   const handleClaimRewards = async () => {
     if (!isConnected) {
-      Alert.alert('Wallet Required', 'Please connect your wallet first');
+      Alert.alert('需要钱包', '请先连接钱包');
       return;
     }
     setClaiming(true);
@@ -84,7 +84,7 @@ export default function NodeScreen() {
       });
       const result = await res.json();
       if (result.success) {
-        Alert.alert('Success', `Claimed ${result.data.claimedUSDT} USDT + ${result.data.claimedTFT} TFT`);
+        Alert.alert('成功', `已领取 ${result.data.claimedUSDT} USDT + ${result.data.claimedTFT} TFT`);
         fetchData();
       }
     } catch (error) {
@@ -96,12 +96,12 @@ export default function NodeScreen() {
 
   const handleAcquireNode = async () => {
     if (!isConnected) {
-      Alert.alert('Wallet Required', 'Please connect your wallet first');
+      Alert.alert('需要钱包', '请先连接钱包');
       return;
     }
     const amount = parseFloat(tftAmount);
     if (!amount || amount < 5000) {
-      Alert.alert('Invalid Amount', 'Minimum 5000 TFT required');
+      Alert.alert('金额无效', '至少需要 5000 TFT');
       return;
     }
     try {
@@ -117,7 +117,7 @@ export default function NodeScreen() {
       });
       const result = await res.json();
       if (result.success) {
-        Alert.alert('Success', `Acquired ${result.data.nodesAcquired} node(s)!`);
+        Alert.alert('成功', `成功获取 ${result.data.nodesAcquired} 个节点！`);
         fetchData();
       }
     } catch (error) {
@@ -146,27 +146,27 @@ export default function NodeScreen() {
       >
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.title}>Node Partner</Text>
-          <Text style={styles.subtitle}>Earn protocol revenue sharing</Text>
+          <Text style={styles.title}>节点合伙人</Text>
+          <Text style={styles.subtitle}>获取协议收益分红</Text>
         </View>
 
         {/* Node Stats */}
         <View style={styles.statsGrid}>
-          <StatCard label="Active Nodes" value={data?.activeNodes?.toString() || '0'} icon="cubes" color={COLORS.primary} />
-          <StatCard label="Max Nodes" value={data?.maxNodes?.toString() || '0'} icon="cubes-stacked" color={COLORS.primaryLight} />
-          <StatCard label="Pending Rewards" value={`$${(data?.pendingRewardsUSDT || 0).toFixed(2)}`} icon="gift" color={COLORS.success} />
-          <StatCard label="Total Claimed" value={`$${(data?.totalClaimedRewards || 0).toFixed(2)}`} icon="trophy" color={COLORS.primary} />
+          <StatCard label="活跃节点" value={data?.activeNodes?.toString() || '0'} icon="cubes" color={COLORS.primary} />
+          <StatCard label="最大节点" value={data?.maxNodes?.toString() || '0'} icon="cubes-stacked" color={COLORS.primaryLight} />
+          <StatCard label="待领收益" value={`$${(data?.pendingRewardsUSDT || 0).toFixed(2)}`} icon="gift" color={COLORS.success} />
+          <StatCard label="累计已领" value={`$${(data?.totalClaimedRewards || 0).toFixed(2)}`} icon="trophy" color={COLORS.primary} />
         </View>
 
         {/* Quick Claim */}
         <View style={styles.claimCard}>
           <View style={styles.claimInfo}>
             <View>
-              <Text style={styles.claimLabel}>Pending USDT</Text>
+              <Text style={styles.claimLabel}>待领USDT</Text>
               <Text style={styles.claimValue}>${data?.pendingRewardsUSDT?.toFixed(2) || '0.00'}</Text>
             </View>
             <View>
-              <Text style={styles.claimLabel}>Pending TFT</Text>
+              <Text style={styles.claimLabel}>待领TFT</Text>
               <Text style={styles.claimValue}>{data?.pendingRewardsTFT?.toFixed(2) || '0.00'}</Text>
             </View>
           </View>
@@ -185,7 +185,7 @@ export default function NodeScreen() {
                 <ActivityIndicator color={COLORS.background} size="small" />
               ) : (
                 <Text style={styles.claimBtnText}>
-                  {!isConnected ? 'Connect Wallet' : 'Claim All Rewards'}
+                  {!isConnected ? '连接钱包' : '一键领取所有收益'}
                 </Text>
               )}
             </LinearGradient>
@@ -194,7 +194,7 @@ export default function NodeScreen() {
 
         {/* Acquire Node */}
         <View style={styles.acquireSection}>
-          <Text style={styles.sectionTitle}>Acquire Node</Text>
+          <Text style={styles.sectionTitle}>获取节点</Text>
 
           {/* Method Tabs */}
           <View style={styles.methodTabs}>
@@ -203,7 +203,7 @@ export default function NodeScreen() {
               onPress={() => setAcquireMethod('burn')}
             >
               <Text style={[styles.methodTabText, acquireMethod === 'burn' && styles.methodTabTextActive]}>
-                Burn TFT
+                销毁TFT
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -211,7 +211,7 @@ export default function NodeScreen() {
               onPress={() => setAcquireMethod('lp')}
             >
               <Text style={[styles.methodTabText, acquireMethod === 'lp' && styles.methodTabTextActive]}>
-                Add LP
+                添加LP
               </Text>
             </TouchableOpacity>
           </View>
@@ -219,7 +219,7 @@ export default function NodeScreen() {
           <View style={styles.acquireCard}>
             {acquireMethod === 'burn' ? (
               <>
-                <Text style={styles.acquireDesc}>Burn 5000 TFT to get 1 node</Text>
+                <Text style={styles.acquireDesc}>销毁 5000 TFT 获得 1 个节点</Text>
                 <View style={styles.inputRow}>
                   <TextInput
                     style={styles.acquireInput}
@@ -232,7 +232,7 @@ export default function NodeScreen() {
                   <Text style={styles.inputSuffix}>TFT</Text>
                 </View>
                 <Text style={styles.estimateText}>
-                  Estimated: {estimatedNodes} node(s)
+                  Estimated: {estimatedNodes} 个节点
                 </Text>
                 <TouchableOpacity
                   style={[styles.acquireBtn, !isConnected && styles.acquireBtnDisabled]}
@@ -246,14 +246,14 @@ export default function NodeScreen() {
                     style={styles.acquireBtnGradient}
                   >
                     <Text style={styles.acquireBtnText}>
-                      {!isConnected ? 'Connect Wallet' : 'Authorize & Burn'}
+                      {!isConnected ? '连接钱包' : '授权并销毁'}
                     </Text>
                   </LinearGradient>
                 </TouchableOpacity>
               </>
             ) : (
               <>
-                <Text style={styles.acquireDesc}>Add equal value TFT + USDT LP to get nodes</Text>
+                <Text style={styles.acquireDesc}>添加等值TFT+USDT LP获得节点</Text>
                 <View style={styles.inputRow}>
                   <TextInput
                     style={styles.acquireInput}
@@ -266,10 +266,10 @@ export default function NodeScreen() {
                   <Text style={styles.inputSuffix}>TFT</Text>
                 </View>
                 <View style={styles.lpEquivalent}>
-                  <Text style={styles.lpEquivText}>≈ 2500 USDT (auto-calculated)</Text>
+                  <Text style={styles.lpEquivText}>≈ 2500 USDT (自动计算)</Text>
                 </View>
                 <Text style={styles.estimateText}>
-                  Estimated: {estimatedNodes} node(s)
+                  Estimated: {estimatedNodes} 个节点
                 </Text>
                 <TouchableOpacity
                   style={[styles.acquireBtn, !isConnected && styles.acquireBtnDisabled]}
@@ -283,7 +283,7 @@ export default function NodeScreen() {
                     style={styles.acquireBtnGradient}
                   >
                     <Text style={styles.acquireBtnText}>
-                      {!isConnected ? 'Connect Wallet' : 'Authorize & Add LP'}
+                      {!isConnected ? '连接钱包' : '授权并添加LP'}
                     </Text>
                   </LinearGradient>
                 </TouchableOpacity>
@@ -295,21 +295,21 @@ export default function NodeScreen() {
         {/* LP Management */}
         {data && (
           <View style={styles.lpSection}>
-            <Text style={styles.sectionTitle}>LP Management</Text>
+            <Text style={styles.sectionTitle}>LP管理</Text>
             <View style={styles.lpCard}>
               <View style={styles.lpRow}>
-                <Text style={styles.lpLabel}>Total Locked LP</Text>
+                <Text style={styles.lpLabel}>总锁仓LP</Text>
                 <Text style={styles.lpValue}>{data.lpLocked.toLocaleString()} LP</Text>
               </View>
               <View style={styles.lpRow}>
-                <Text style={styles.lpLabel}>Withdrawable</Text>
+                <Text style={styles.lpLabel}>可撤回</Text>
                 <Text style={[styles.lpValue, { color: data.lpWithdrawable > 0 ? COLORS.success : COLORS.textSecondary }]}>
                   {data.lpWithdrawable.toFixed(2)} LP
                 </Text>
               </View>
               <View style={styles.lpRow}>
-                <Text style={styles.lpLabel}>Unlock Progress</Text>
-                <Text style={styles.lpValue}>{data.lpUnlockProgress.current}/{data.lpUnlockProgress.total} periods</Text>
+                <Text style={styles.lpLabel}>解锁进度</Text>
+                <Text style={styles.lpValue}>{data.lpUnlockProgress.current}/{data.lpUnlockProgress.total} 期</Text>
               </View>
 
               {/* Progress Bar */}
@@ -327,7 +327,7 @@ export default function NodeScreen() {
 
               <View style={styles.lpNextUnlock}>
                 <Text style={styles.lpNextText}>
-                  Next unlock: {data.nextUnlockAmount} LP in {data.nextUnlockDays} days
+                  下次解锁: {data.nextUnlockAmount} LP ({data.nextUnlockDays}天后)
                 </Text>
               </View>
 
@@ -336,7 +336,7 @@ export default function NodeScreen() {
                 disabled={data.lpWithdrawable <= 0}
               >
                 <Text style={[styles.withdrawBtnText, data.lpWithdrawable <= 0 && styles.withdrawBtnTextDisabled]}>
-                  Withdraw LP
+                  撤回LP
                 </Text>
               </TouchableOpacity>
             </View>
@@ -345,7 +345,7 @@ export default function NodeScreen() {
 
         {/* Reward History */}
         <View style={styles.rewardSection}>
-          <Text style={styles.sectionTitle}>Recent Dividends</Text>
+          <Text style={styles.sectionTitle}>最近分红</Text>
           {data?.rewards.map((reward) => (
             <View key={reward.id} style={styles.rewardItem}>
               <View style={styles.rewardLeft}>
@@ -362,7 +362,7 @@ export default function NodeScreen() {
                 <View>
                   <Text style={styles.rewardDate}>{reward.date}</Text>
                   <Text style={styles.rewardType}>
-                    {reward.type === 'node' ? 'Node Dividend' : 'LP Dividend'}
+                    {reward.type === 'node' ? '节点分红' : 'LP分红'}
                   </Text>
                 </View>
               </View>

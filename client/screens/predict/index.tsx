@@ -72,12 +72,12 @@ export default function PredictScreen() {
 
   const handleSubmit = async () => {
     if (!isConnected) {
-      Alert.alert('Wallet Required', 'Please connect your wallet first');
+      Alert.alert('需要钱包', '请先连接钱包');
       return;
     }
     const amountNum = parseFloat(amount);
     if (!amountNum || amountNum < 1) {
-      Alert.alert('Invalid Amount', 'Minimum bet is 1 USDT');
+      Alert.alert('金额无效', '最低投注额为 1 USDT');
       return;
     }
 
@@ -97,7 +97,7 @@ export default function PredictScreen() {
       if (result.success) {
         setAmount('');
         fetchData();
-        Alert.alert('Success', 'Prediction submitted!');
+        Alert.alert('成功', '预测已提交！');
       }
     } catch (error) {
       console.error('Submit prediction error:', error);
@@ -164,11 +164,11 @@ export default function PredictScreen() {
         {/* Title Bar */}
         <View style={styles.titleBar}>
           <View>
-            <Text style={styles.title}>BTC/USDT Predict</Text>
-            <Text style={styles.subtitle}>5-min candle prediction</Text>
+            <Text style={styles.title}>BTC/USDT 预测</Text>
+            <Text style={styles.subtitle}>5分钟K线预测</Text>
           </View>
           <View style={styles.roundInfo}>
-            <Text style={styles.roundText}>Round #{data?.currentRound}</Text>
+            <Text style={styles.roundText}>第 #{data?.currentRound} 期</Text>
             <View style={styles.timerBadge}>
               <FontAwesome6 name="clock" size={10} color={COLORS.primary} />
               <Text style={styles.timerText}>{data ? formatTime(data.timeLeftSeconds) : '--:--'}</Text>
@@ -178,7 +178,7 @@ export default function PredictScreen() {
 
         {/* Betting Panel */}
         <View style={styles.betPanel}>
-          <Text style={styles.betLabel}>SELECT DIRECTION</Text>
+          <Text style={styles.betLabel}>选择方向</Text>
           <View style={styles.directionRow}>
             <TouchableOpacity
               style={[styles.directionBtn, direction === 'up' && styles.directionBtnActiveUp]}
@@ -190,7 +190,7 @@ export default function PredictScreen() {
               >
                 <FontAwesome6 name="arrow-trend-up" size={20} color={direction === 'up' ? COLORS.success : COLORS.textSecondary} />
                 <Text style={[styles.directionText, { color: direction === 'up' ? COLORS.success : COLORS.textSecondary }]}>
-                  LONG
+                  看涨
                 </Text>
                 <Text style={[styles.oddsText, { color: direction === 'up' ? COLORS.success : COLORS.textSecondary }]}>
                   {data?.oddsUp}x
@@ -207,7 +207,7 @@ export default function PredictScreen() {
               >
                 <FontAwesome6 name="arrow-trend-down" size={20} color={direction === 'down' ? COLORS.danger : COLORS.textSecondary} />
                 <Text style={[styles.directionText, { color: direction === 'down' ? COLORS.danger : COLORS.textSecondary }]}>
-                  SHORT
+                  看跌
                 </Text>
                 <Text style={[styles.oddsText, { color: direction === 'down' ? COLORS.danger : COLORS.textSecondary }]}>
                   {data?.oddsDown}x
@@ -216,7 +216,7 @@ export default function PredictScreen() {
             </TouchableOpacity>
           </View>
 
-          <Text style={styles.betLabel}>BET AMOUNT (USDT)</Text>
+          <Text style={styles.betLabel}>投注金额 (USDT)</Text>
           <View style={styles.amountInputContainer}>
             <TextInput
               style={styles.amountInput}
@@ -241,7 +241,7 @@ export default function PredictScreen() {
 
           {/* Estimated Return */}
           <View style={styles.estimateRow}>
-            <Text style={styles.estimateLabel}>Est. Return</Text>
+            <Text style={styles.estimateLabel}>预估收益</Text>
             <Text style={styles.estimateValue}>
               {estimatedReturn(direction === 'up' ? (data?.oddsUp || 1.8) : (data?.oddsDown || 2.2))} USDT
             </Text>
@@ -251,7 +251,7 @@ export default function PredictScreen() {
           <View style={styles.insuranceNotice}>
             <FontAwesome6 name="shield-halved" size={12} color={COLORS.primary} />
             <Text style={styles.insuranceNoticeText}>
-              20% of bet goes to Insurance Pool → Buy TFT
+              20%投注额将注入保险仓 → 买入TFT
             </Text>
           </View>
 
@@ -271,7 +271,7 @@ export default function PredictScreen() {
                 <ActivityIndicator color={COLORS.background} />
               ) : (
                 <Text style={styles.submitText}>
-                  {!isConnected ? 'Connect Wallet' : `Confirm ${direction === 'up' ? 'LONG' : 'SHORT'}`}
+                  {!isConnected ? '请先连接钱包' : `确认${direction === 'up' ? '看涨' : '看跌'}`}
                 </Text>
               )}
             </LinearGradient>
@@ -284,16 +284,16 @@ export default function PredictScreen() {
             {data.isVIP ? (
               <View style={styles.statusContent}>
                 <FontAwesome6 name="crown" size={14} color={COLORS.primary} />
-                <Text style={styles.statusText}>VIP · Unlimited predictions</Text>
+                <Text style={styles.statusText}>VIP · 无限次预测</Text>
               </View>
             ) : (
               <View style={styles.statusContent}>
                 <FontAwesome6 name="circle-info" size={14} color={COLORS.textSecondary} />
                 <Text style={styles.statusText}>
-                  {data.participationCount}/{data.maxParticipation} used this round
+                  本期已参与 {data.participationCount}/{data.maxParticipation} 次
                 </Text>
                 <TouchableOpacity>
-                  <Text style={styles.upgradeText}> Upgrade VIP →</Text>
+                  <Text style={styles.upgradeText}> 升级VIP →</Text>
                 </TouchableOpacity>
               </View>
             )}
@@ -302,24 +302,27 @@ export default function PredictScreen() {
 
         {/* Prediction History */}
         <View style={styles.historySection}>
-          <Text style={styles.historyTitle}>Prediction History</Text>
+          <Text style={styles.historyTitle}>预测记录</Text>
           <View style={styles.filterRow}>
-            {['all', 'pending', 'won', 'claimed'].map((f) => (
-              <TouchableOpacity
-                key={f}
-                style={[styles.filterBtn, filter === f && styles.filterBtnActive]}
-                onPress={() => setFilter(f)}
-              >
-                <Text style={[styles.filterText, filter === f && styles.filterTextActive]}>
-                  {f.charAt(0).toUpperCase() + f.slice(1)}
-                </Text>
-              </TouchableOpacity>
-            ))}
+            {(['all', 'pending', 'won', 'claimed'] as const).map((f) => {
+              const labels: Record<string, string> = { all: '全部', pending: '待结算', won: '已获胜', claimed: '已领取' };
+              return (
+                <TouchableOpacity
+                  key={f}
+                  style={[styles.filterBtn, filter === f && styles.filterBtnActive]}
+                  onPress={() => setFilter(f)}
+                >
+                  <Text style={[styles.filterText, filter === f && styles.filterTextActive]}>
+                    {labels[f]}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
 
           {filteredPredictions.length === 0 ? (
             <View style={styles.emptyState}>
-              <Text style={styles.emptyText}>No predictions found</Text>
+              <Text style={styles.emptyText}>暂无预测记录</Text>
             </View>
           ) : (
             <View style={styles.historyList}>
@@ -346,11 +349,11 @@ export default function PredictScreen() {
                       styles.historyStatus,
                       { color: item.status === 'won' || item.status === 'claimed' ? COLORS.success : item.status === 'lost' ? COLORS.danger : COLORS.primary }
                     ]}>
-                      {item.status === 'won' ? 'Won' : item.status === 'lost' ? 'Lost' : item.status === 'claimed' ? 'Claimed' : 'Pending'}
+                      {item.status === 'won' ? '获胜' : item.status === 'lost' ? '失败' : item.status === 'claimed' ? '已领取' : '待结算'}
                     </Text>
                     {item.status === 'won' && (
                       <TouchableOpacity style={styles.claimBtn} onPress={() => handleClaim(item.id)}>
-                        <Text style={styles.claimBtnText}>Claim</Text>
+                        <Text style={styles.claimBtnText}>领取</Text>
                       </TouchableOpacity>
                     )}
                     {(item.status === 'won' || item.status === 'claimed') && item.profit > 0 && (

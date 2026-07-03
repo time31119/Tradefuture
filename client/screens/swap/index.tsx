@@ -112,11 +112,11 @@ export default function SwapScreen() {
 
   const handleSwap = async () => {
     if (!isConnected) {
-      Alert.alert('Wallet Required', 'Please connect your wallet first');
+      Alert.alert('需要钱包', '请先连接钱包');
       return;
     }
     if (!inputAmount || parseFloat(inputAmount) <= 0) {
-      Alert.alert('Invalid Amount', 'Please enter an amount');
+      Alert.alert('金额无效', '请输入金额');
       return;
     }
     setSwapping(true);
@@ -133,7 +133,7 @@ export default function SwapScreen() {
       });
       const result = await res.json();
       if (result.success) {
-        Alert.alert('Success', `Swapped ${inputAmount} ${fromToken} for ${toToken}`);
+        Alert.alert('成功', `已将 ${inputAmount} ${fromToken} 兑换为 ${toToken}`);
         setInputAmount('');
         setQuote(null);
         fetchBalances();
@@ -160,7 +160,7 @@ export default function SwapScreen() {
       });
       const result = await res.json();
       if (result.success) {
-        Alert.alert('Success', `Added liquidity: ${result.data.lpReceived.toFixed(2)} LP`);
+        Alert.alert('成功', `已添加流动性: ${result.data.lpReceived.toFixed(2)} LP`);
         setAddTft('');
         fetchBalances();
       }
@@ -184,7 +184,7 @@ export default function SwapScreen() {
       });
       const result = await res.json();
       if (result.success) {
-        Alert.alert('Success', `Removed liquidity: ${result.data.tftReturned.toFixed(2)} TFT + ${result.data.usdtReturned.toFixed(2)} USDT`);
+        Alert.alert('成功', `已移除流动性: ${result.data.tftReturned.toFixed(2)} TFT + ${result.data.usdtReturned.toFixed(2)} USDT`);
         setRemoveLp('');
         fetchBalances();
       }
@@ -212,8 +212,8 @@ export default function SwapScreen() {
       >
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.title}>Swap</Text>
-          <Text style={styles.subtitle}>Exchange TFT / USDT</Text>
+          <Text style={styles.title}>兑换</Text>
+          <Text style={styles.subtitle}>TFT / USDT 双向兑换</Text>
         </View>
 
         {/* Balances */}
@@ -253,7 +253,7 @@ export default function SwapScreen() {
 
           {/* Input */}
           <View style={styles.swapInputContainer}>
-            <Text style={styles.swapInputLabel}>Sell {fromToken}</Text>
+            <Text style={styles.swapInputLabel}>卖出 {fromToken}</Text>
             <View style={styles.swapInputRow}>
               <TextInput
                 style={styles.swapInput}
@@ -264,7 +264,7 @@ export default function SwapScreen() {
                 keyboardType="decimal-pad"
               />
               <TouchableOpacity style={styles.maxBtn} onPress={handleMax}>
-                <Text style={styles.maxBtnText}>MAX</Text>
+                <Text style={styles.maxBtnText}>最大</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -276,7 +276,7 @@ export default function SwapScreen() {
 
           {/* Output */}
           <View style={styles.swapOutputContainer}>
-            <Text style={styles.swapInputLabel}>Buy {toToken}</Text>
+            <Text style={styles.swapInputLabel}>买入 {toToken}</Text>
             <Text style={styles.swapOutputValue}>
               {quote?.outputAmount?.toFixed(4) || '0.00'}
             </Text>
@@ -286,15 +286,15 @@ export default function SwapScreen() {
           {quote && (
             <View style={styles.rateInfo}>
               <Text style={styles.rateText}>
-                Rate: 1 {fromToken} = {quote.rate} {toToken}
+                汇率: 1 {fromToken} = {quote.rate} {toToken}
               </Text>
-              <Text style={styles.rateText}>Slippage: {quote.slippage}%</Text>
+              <Text style={styles.rateText}>滑点: {quote.slippage}%</Text>
             </View>
           )}
 
           <View style={styles.slippageNotice}>
             <FontAwesome6 name="bolt" size={10} color={COLORS.primary} />
-            <Text style={styles.slippageText}>1% slippage auto-distributed to LP providers</Text>
+            <Text style={styles.slippageText}>1%滑点自动分配给做市商</Text>
           </View>
 
           {/* Swap Button */}
@@ -313,7 +313,7 @@ export default function SwapScreen() {
                 <ActivityIndicator color={COLORS.background} size="small" />
               ) : (
                 <Text style={styles.swapBtnText}>
-                  {!isConnected ? 'Connect Wallet' : !inputAmount ? 'Enter Amount' : 'Confirm Swap'}
+                  {!isConnected ? '请先连接钱包' : !inputAmount ? '输入兑换金额' : '确认兑换'}
                 </Text>
               )}
             </LinearGradient>
@@ -322,12 +322,12 @@ export default function SwapScreen() {
 
         {/* Liquidity Management */}
         <View style={styles.liquiditySection}>
-          <Text style={styles.sectionTitle}>Liquidity Management</Text>
+          <Text style={styles.sectionTitle}>流动性管理</Text>
 
           {/* Add Liquidity */}
           <View style={styles.liquidityCard}>
             <Text style={styles.liquidityTitle}>
-              <FontAwesome6 name="circle-plus" size={14} color={COLORS.success} /> Add Liquidity
+              <FontAwesome6 name="circle-plus" size={14} color={COLORS.success} /> 添加流动性
             </Text>
             <View style={styles.liquidityInputs}>
               <View style={styles.liquidityInputRow}>
@@ -335,7 +335,7 @@ export default function SwapScreen() {
                   style={styles.liquidityInput}
                   value={addTft}
                   onChangeText={setAddTft}
-                  placeholder="TFT amount"
+                  placeholder="TFT数量"
                   placeholderTextColor={COLORS.textSecondary}
                   keyboardType="decimal-pad"
                 />
@@ -346,14 +346,14 @@ export default function SwapScreen() {
                   style={styles.liquidityInput}
                   value={addTft ? (parseFloat(addTft) * 0.5).toFixed(2) : ''}
                   editable={false}
-                  placeholder="Auto-calculated"
+                  placeholder="自动计算"
                   placeholderTextColor={COLORS.textSecondary}
                 />
                 <Text style={styles.liquiditySuffix}>USDT</Text>
               </View>
             </View>
             <Text style={styles.poolRatio}>
-              Pool ratio: 1 TFT = {balances?.tftPrice?.toFixed(2) || '0.50'} USDT
+              池子比例: 1 TFT = {balances?.tftPrice?.toFixed(2) || '0.50'} USDT
             </Text>
             <TouchableOpacity
               style={[styles.liquidityBtn, !isConnected && styles.liquidityBtnDisabled]}
@@ -361,7 +361,7 @@ export default function SwapScreen() {
               disabled={!isConnected}
             >
               <Text style={[styles.liquidityBtnText, { color: COLORS.success }]}>
-                {!isConnected ? 'Connect Wallet' : 'Add Liquidity'}
+                {!isConnected ? '请先连接钱包' : '添加流动性'}
               </Text>
             </TouchableOpacity>
           </View>
@@ -369,24 +369,24 @@ export default function SwapScreen() {
           {/* Remove Liquidity */}
           <View style={styles.liquidityCard}>
             <Text style={styles.liquidityTitle}>
-              <FontAwesome6 name="arrow-up-from-bracket" size={14} color={COLORS.danger} /> Remove Liquidity
+              <FontAwesome6 name="arrow-up-from-bracket" size={14} color={COLORS.danger} /> 移除流动性
             </Text>
             <View style={styles.liquidityInputRow}>
               <TextInput
                 style={styles.liquidityInput}
                 value={removeLp}
                 onChangeText={setRemoveLp}
-                placeholder="LP amount"
+                placeholder="LP数量"
                 placeholderTextColor={COLORS.textSecondary}
                 keyboardType="decimal-pad"
               />
               <TouchableOpacity onPress={() => setRemoveLp(balances?.lpBalance.toString() || '0')}>
-                <Text style={styles.maxLpText}>MAX</Text>
+                <Text style={styles.maxLpText}>最大</Text>
               </TouchableOpacity>
             </View>
             {removeLp && (
               <Text style={styles.removeEstimate}>
-                Est. return: {(parseFloat(removeLp) * 0.5).toFixed(2)} TFT + {(parseFloat(removeLp) * 0.25).toFixed(2)} USDT
+                预计赎回: {(parseFloat(removeLp) * 0.5).toFixed(2)} TFT + {(parseFloat(removeLp) * 0.25).toFixed(2)} USDT
               </Text>
             )}
             <TouchableOpacity
@@ -395,7 +395,7 @@ export default function SwapScreen() {
               disabled={!isConnected || !removeLp}
             >
               <Text style={[styles.liquidityBtnText, { color: COLORS.danger }]}>
-                {!isConnected ? 'Connect Wallet' : 'Remove Liquidity'}
+                {!isConnected ? '请先连接钱包' : '移除流动性'}
               </Text>
             </TouchableOpacity>
           </View>

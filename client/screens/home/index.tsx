@@ -119,10 +119,10 @@ export default function HomeScreen() {
 
   const getStatusLabel = (status: string) => {
     switch (status) {
-      case 'won': return 'Won';
-      case 'lost': return 'Lost';
-      case 'pending': return 'Pending';
-      case 'claimed': return 'Claimed';
+      case 'won': return '获胜';
+      case 'lost': return '失败';
+      case 'pending': return '待结算';
+      case 'claimed': return '已领取';
       default: return status;
     }
   };
@@ -161,7 +161,7 @@ export default function HomeScreen() {
               </View>
             ) : (
               <TouchableOpacity style={styles.connectBtn}>
-                <Text style={styles.connectBtnText}>Connect</Text>
+                <Text style={styles.connectBtnText}>连接</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -170,25 +170,25 @@ export default function HomeScreen() {
         {/* Overview Cards */}
         <View style={styles.overviewGrid}>
           <OverviewCard
-            label="Account Value"
+            label="账户总值"
             value={isConnected && overview?.accountValue ? `$${formatNumber(overview.accountValue)}` : '--'}
             icon="wallet"
             color={COLORS.primary}
           />
           <OverviewCard
-            label="24h P&L"
+            label="24h盈亏"
             value={isConnected && overview?.pnl24h !== null && overview?.pnl24h !== undefined ? `${overview.pnl24h >= 0 ? '+' : ''}$${formatNumber(overview.pnl24h)}` : '--'}
             icon="arrow-trend-up"
             color={isConnected && overview?.pnl24h && overview.pnl24h >= 0 ? COLORS.success : COLORS.danger}
           />
           <OverviewCard
-            label="Active Positions"
+            label="活跃持仓"
             value={isConnected && overview?.activePositions !== null && overview?.activePositions !== undefined ? `${overview.activePositions}` : '--'}
             icon="layer-group"
             color={COLORS.primary}
           />
           <OverviewCard
-            label="24h Volume"
+            label="24h交易量"
             value={overview ? formatCompact(overview.volume24h) : '--'}
             icon="chart-bar"
             color={COLORS.primaryLight}
@@ -197,7 +197,7 @@ export default function HomeScreen() {
 
         {/* Quick Actions */}
         <View style={styles.section}>
-          <Text style={styles.sectionLabel}>QUICK ACTIONS</Text>
+          <Text style={styles.sectionLabel}>快捷操作</Text>
           <View style={styles.quickActions}>
             <TouchableOpacity style={styles.quickActionBtn}>
               <LinearGradient
@@ -205,7 +205,7 @@ export default function HomeScreen() {
                 style={styles.quickActionGradient}
               >
                 <FontAwesome6 name="arrow-trend-up" size={18} color={COLORS.success} />
-                <Text style={[styles.quickActionText, { color: COLORS.success }]}>Long</Text>
+                <Text style={[styles.quickActionText, { color: COLORS.success }]}>看涨</Text>
               </LinearGradient>
             </TouchableOpacity>
             <TouchableOpacity style={styles.quickActionBtn}>
@@ -214,7 +214,7 @@ export default function HomeScreen() {
                 style={styles.quickActionGradient}
               >
                 <FontAwesome6 name="arrow-trend-down" size={18} color={COLORS.danger} />
-                <Text style={[styles.quickActionText, { color: COLORS.danger }]}>Short</Text>
+                <Text style={[styles.quickActionText, { color: COLORS.danger }]}>看跌</Text>
               </LinearGradient>
             </TouchableOpacity>
             <TouchableOpacity style={styles.quickActionBtn}>
@@ -223,7 +223,7 @@ export default function HomeScreen() {
                 style={styles.quickActionGradient}
               >
                 <FontAwesome6 name="bolt" size={18} color={COLORS.primary} />
-                <Text style={[styles.quickActionText, { color: COLORS.primary }]}>Quick</Text>
+                <Text style={[styles.quickActionText, { color: COLORS.primary }]}>快速</Text>
               </LinearGradient>
             </TouchableOpacity>
           </View>
@@ -269,14 +269,14 @@ export default function HomeScreen() {
           <View style={styles.insuranceBar}>
             <View style={styles.insuranceLeft}>
               <FontAwesome6 name="shield-halved" size={16} color={COLORS.primary} />
-              <Text style={styles.insuranceLabel}>Insurance Pool</Text>
+              <Text style={styles.insuranceLabel}>保险仓</Text>
             </View>
             <View style={styles.insuranceRight}>
               <Text style={styles.insuranceValue}>
                 {formatNumber(overview.insurancePoolBalance, 0)} TFT
               </Text>
               <Text style={styles.insuranceSub}>
-                Round: +{overview.insurancePoolInjection} TFT
+                本轮: +{overview.insurancePoolInjection} TFT
               </Text>
             </View>
           </View>
@@ -285,15 +285,15 @@ export default function HomeScreen() {
         {/* Recent Predictions */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Recent Predictions</Text>
+            <Text style={styles.sectionTitle}>最近预测</Text>
             <TouchableOpacity>
-              <Text style={styles.viewAllText}>View All →</Text>
+              <Text style={styles.viewAllText}>查看全部 →</Text>
             </TouchableOpacity>
           </View>
 
           {predictions.length === 0 ? (
             <View style={styles.emptyState}>
-              <Text style={styles.emptyText}>No predictions yet</Text>
+              <Text style={styles.emptyText}>暂无预测记录</Text>
             </View>
           ) : (
             <View style={styles.predictionList}>
