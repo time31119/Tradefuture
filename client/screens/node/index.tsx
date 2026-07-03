@@ -8,6 +8,7 @@ import {
   TextInput,
   Alert,
   ActivityIndicator,
+  Modal,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { FontAwesome6 } from '@expo/vector-icons';
@@ -17,6 +18,14 @@ import { useFocusEffect } from 'expo-router';
 import { COLORS } from '@/utils/theme';
 
 const EXPO_PUBLIC_BACKEND_BASE_URL = process.env.EXPO_PUBLIC_BACKEND_BASE_URL || 'http://localhost:9091';
+
+interface Reward {
+  id: number;
+  date: string;
+  amount: number;
+  currency: string;
+  type: 'node' | 'lp';
+}
 
 interface NodeData {
   activeNodes: number;
@@ -30,14 +39,10 @@ interface NodeData {
   nextUnlockAmount: number;
   nextUnlockDays: number;
   nodePrice: number;
-  rewards: Array<{
-    id: number;
-    date: string;
-    amount: number;
-    currency: string;
-    type: string;
-  }>;
+  rewards: Reward[];
 }
+
+type RewardFilter = 'all' | 'node' | 'lp';
 
 export default function NodeScreen() {
   const { isConnected } = useWallet();
@@ -46,6 +51,10 @@ export default function NodeScreen() {
   const [tftAmount, setTftAmount] = useState('5000');
   const [acquireMethod, setAcquireMethod] = useState<'burn' | 'lp'>('burn');
   const [claiming, setClaiming] = useState(false);
+  const [withdrawing, setWithdrawing] = useState(false);
+  const [rewardFilter, setRewardFilter] = useState<RewardFilter>('all');
+  const [showWithdrawModal, setShowWithdrawModal] = useState(false);
+  const [withdrawAmount, setWithdrawAmount] = useState('');
 
   const fetchData = useCallback(async () => {
     try {
@@ -84,11 +93,12 @@ export default function NodeScreen() {
       });
       const result = await res.json();
       if (result.success) {
-        Alert.alert('成功', `已领取 ${result.data.claimedUSDT} USDT + ${result.data.claimedTFT} TFT`);
+        Alert.alert('领取成功', `已领取 ${result.data.claimedUSDT} USDT + ${result.data.claimedTFT} TFT`);
         fetchData();
       }
     } catch (error) {
       console.error('Claim error:', error);
+      Alert.alert('错误', '领取失败，请重试');
     } finally {
       setClaiming(false);
     }
@@ -122,10 +132,57 @@ export default function NodeScreen() {
       }
     } catch (error) {
       console.error('Acquire node error:', error);
+      Alert.alert('错误', '获取节点失败，请重试');
+    }
+  };
+
+  const handleWithdrawLP = async () => {
+    if (!isConnected) {
+      Alert.alert('需要钱包', '请先连接钱包');
+      return;
+    }
+    const amount = parseFloat(withdrawAmount);
+    if (!amount || amount <= 0) {
+      Alert.alert('金额无效', '请输入有效的撤回数量');
+      return;
+    }
+    if (amount > (data?.lpWithdrawable || 0)) {
+      Alert.alert('金额超限', '撤回数量超过可撤回额度');
+      return;
+    }
+    setWithdrawing(true);
+    try {
+      /**
+       * 服务端文件：server/src/index.ts
+       * 接口：POST /api/v1/node/withdraw-lp
+       * Body 参数：lpAmount: number
+       */
+      const res = await fetch(`${EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/node/withdraw-lp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lpAmount: amount }),
+      });
+      const result = await res.json();
+      if (result.success) {
+        Alert.alert('撤回成功', `已撤回 ${result.data.lpWithdrawn} LP\n获得 ${result.data.tftReturned.toFixed(2)} TFT + ${result.data.usdtReturned.toFixed(2)} USDT`);
+        setShowWithdrawModal(false);
+        setWithdrawAmount('');
+        fetchData();
+      }
+    } catch (error) {
+      console.error('Withdraw LP error:', error);
+      Alert.alert('错误', '撤回失败，请重试');
+    } finally {
+      setWithdrawing(false);
     }
   };
 
   const estimatedNodes = Math.floor((parseFloat(tftAmount) || 0) / 5000);
+
+  const filteredRewards = data?.rewards.filter((reward) => {
+    if (rewardFilter === 'all') return true;
+    return reward.type === rewardFilter;
+  }) || [];
 
   if (loading) {
     return (
@@ -138,7 +195,7 @@ export default function NodeScreen() {
   }
 
   return (
-    <Screen backgroundColor={COLORS.background} statusBarStyle="light" safeAreaEdges={['left', 'right']}>
+    <Screen backgroundColor={COLORS.background} statusBarStyle="light">
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -161,11 +218,12 @@ export default function NodeScreen() {
         {/* Quick Claim */}
         <View style={styles.claimCard}>
           <View style={styles.claimInfo}>
-            <View>
+            <View style={styles.claimItem}>
               <Text style={styles.claimLabel}>待领USDT</Text>
               <Text style={styles.claimValue}>${data?.pendingRewardsUSDT?.toFixed(2) || '0.00'}</Text>
             </View>
-            <View>
+            <View style={styles.claimDivider} />
+            <View style={styles.claimItem}>
               <Text style={styles.claimLabel}>待领TFT</Text>
               <Text style={styles.claimValue}>{data?.pendingRewardsTFT?.toFixed(2) || '0.00'}</Text>
             </View>
@@ -184,9 +242,12 @@ export default function NodeScreen() {
               {claiming ? (
                 <ActivityIndicator color={COLORS.background} size="small" />
               ) : (
-                <Text style={styles.claimBtnText}>
-                  {!isConnected ? '连接钱包' : '一键领取所有收益'}
-                </Text>
+                <View style={styles.claimBtnContent}>
+                  <FontAwesome6 name="hand-holding-dollar" size={16} color={COLORS.background} />
+                  <Text style={styles.claimBtnText}>
+                    {!isConnected ? '连接钱包' : '一键领取所有收益'}
+                  </Text>
+                </View>
               )}
             </LinearGradient>
           </TouchableOpacity>
@@ -194,7 +255,10 @@ export default function NodeScreen() {
 
         {/* Acquire Node */}
         <View style={styles.acquireSection}>
-          <Text style={styles.sectionTitle}>获取节点</Text>
+          <View style={styles.sectionHeader}>
+            <FontAwesome6 name="circle-plus" size={16} color={COLORS.primary} />
+            <Text style={styles.sectionTitle}>获取节点</Text>
+          </View>
 
           {/* Method Tabs */}
           <View style={styles.methodTabs}>
@@ -202,6 +266,7 @@ export default function NodeScreen() {
               style={[styles.methodTab, acquireMethod === 'burn' && styles.methodTabActive]}
               onPress={() => setAcquireMethod('burn')}
             >
+              <FontAwesome6 name="fire" size={12} color={acquireMethod === 'burn' ? COLORS.primary : COLORS.textSecondary} />
               <Text style={[styles.methodTabText, acquireMethod === 'burn' && styles.methodTabTextActive]}>
                 销毁TFT
               </Text>
@@ -210,6 +275,7 @@ export default function NodeScreen() {
               style={[styles.methodTab, acquireMethod === 'lp' && styles.methodTabActive]}
               onPress={() => setAcquireMethod('lp')}
             >
+              <FontAwesome6 name="droplet" size={12} color={acquireMethod === 'lp' ? COLORS.primary : COLORS.textSecondary} />
               <Text style={[styles.methodTabText, acquireMethod === 'lp' && styles.methodTabTextActive]}>
                 添加LP
               </Text>
@@ -219,7 +285,10 @@ export default function NodeScreen() {
           <View style={styles.acquireCard}>
             {acquireMethod === 'burn' ? (
               <>
-                <Text style={styles.acquireDesc}>销毁 5000 TFT 获得 1 个节点</Text>
+                <View style={styles.acquireDescRow}>
+                  <FontAwesome6 name="fire" size={14} color={COLORS.danger} />
+                  <Text style={styles.acquireDesc}>销毁 5000 TFT 获得 1 个节点</Text>
+                </View>
                 <View style={styles.inputRow}>
                   <TextInput
                     style={styles.acquireInput}
@@ -231,8 +300,19 @@ export default function NodeScreen() {
                   />
                   <Text style={styles.inputSuffix}>TFT</Text>
                 </View>
+                <View style={styles.quickAmounts}>
+                  {[5000, 10000, 25000, 50000].map((amount) => (
+                    <TouchableOpacity
+                      key={amount}
+                      style={styles.quickAmountBtn}
+                      onPress={() => setTftAmount(amount.toString())}
+                    >
+                      <Text style={styles.quickAmountText}>{amount >= 10000 ? `${amount / 1000}K` : amount}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
                 <Text style={styles.estimateText}>
-                  Estimated: {estimatedNodes} 个节点
+                  预计获得: <Text style={styles.estimateValue}>{estimatedNodes}</Text> 个节点
                 </Text>
                 <TouchableOpacity
                   style={[styles.acquireBtn, !isConnected && styles.acquireBtnDisabled]}
@@ -245,6 +325,7 @@ export default function NodeScreen() {
                     end={{ x: 1, y: 0 }}
                     style={styles.acquireBtnGradient}
                   >
+                    <FontAwesome6 name="fire" size={14} color={COLORS.background} />
                     <Text style={styles.acquireBtnText}>
                       {!isConnected ? '连接钱包' : '授权并销毁'}
                     </Text>
@@ -253,7 +334,10 @@ export default function NodeScreen() {
               </>
             ) : (
               <>
-                <Text style={styles.acquireDesc}>添加等值TFT+USDT LP获得节点</Text>
+                <View style={styles.acquireDescRow}>
+                  <FontAwesome6 name="droplet" size={14} color={COLORS.success} />
+                  <Text style={styles.acquireDesc}>添加等值TFT+USDT LP获得节点</Text>
+                </View>
                 <View style={styles.inputRow}>
                   <TextInput
                     style={styles.acquireInput}
@@ -266,10 +350,11 @@ export default function NodeScreen() {
                   <Text style={styles.inputSuffix}>TFT</Text>
                 </View>
                 <View style={styles.lpEquivalent}>
-                  <Text style={styles.lpEquivText}>≈ 2500 USDT (自动计算)</Text>
+                  <FontAwesome6 name="arrow-right" size={10} color={COLORS.textSecondary} />
+                  <Text style={styles.lpEquivText}>≈ {Math.floor((parseFloat(tftAmount) || 0) / 2)} USDT (自动计算)</Text>
                 </View>
                 <Text style={styles.estimateText}>
-                  Estimated: {estimatedNodes} 个节点
+                  预计获得: <Text style={styles.estimateValue}>{estimatedNodes}</Text> 个节点
                 </Text>
                 <TouchableOpacity
                   style={[styles.acquireBtn, !isConnected && styles.acquireBtnDisabled]}
@@ -282,6 +367,7 @@ export default function NodeScreen() {
                     end={{ x: 1, y: 0 }}
                     style={styles.acquireBtnGradient}
                   >
+                    <FontAwesome6 name="droplet" size={14} color={COLORS.background} />
                     <Text style={styles.acquireBtnText}>
                       {!isConnected ? '连接钱包' : '授权并添加LP'}
                     </Text>
@@ -295,20 +381,32 @@ export default function NodeScreen() {
         {/* LP Management */}
         {data && (
           <View style={styles.lpSection}>
-            <Text style={styles.sectionTitle}>LP管理</Text>
+            <View style={styles.sectionHeader}>
+              <FontAwesome6 name="water" size={16} color={COLORS.success} />
+              <Text style={styles.sectionTitle}>LP管理</Text>
+            </View>
             <View style={styles.lpCard}>
               <View style={styles.lpRow}>
-                <Text style={styles.lpLabel}>总锁仓LP</Text>
+                <View style={styles.lpRowLeft}>
+                  <FontAwesome6 name="lock" size={12} color={COLORS.textSecondary} />
+                  <Text style={styles.lpLabel}>总锁仓LP</Text>
+                </View>
                 <Text style={styles.lpValue}>{data.lpLocked.toLocaleString()} LP</Text>
               </View>
               <View style={styles.lpRow}>
-                <Text style={styles.lpLabel}>可撤回</Text>
+                <View style={styles.lpRowLeft}>
+                  <FontAwesome6 name="unlock" size={12} color={COLORS.success} />
+                  <Text style={styles.lpLabel}>可撤回</Text>
+                </View>
                 <Text style={[styles.lpValue, { color: data.lpWithdrawable > 0 ? COLORS.success : COLORS.textSecondary }]}>
                   {data.lpWithdrawable.toFixed(2)} LP
                 </Text>
               </View>
               <View style={styles.lpRow}>
-                <Text style={styles.lpLabel}>解锁进度</Text>
+                <View style={styles.lpRowLeft}>
+                  <FontAwesome6 name="chart-line" size={12} color={COLORS.textSecondary} />
+                  <Text style={styles.lpLabel}>解锁进度</Text>
+                </View>
                 <Text style={styles.lpValue}>{data.lpUnlockProgress.current}/{data.lpUnlockProgress.total} 期</Text>
               </View>
 
@@ -326,6 +424,7 @@ export default function NodeScreen() {
               </View>
 
               <View style={styles.lpNextUnlock}>
+                <FontAwesome6 name="clock" size={12} color={COLORS.primary} />
                 <Text style={styles.lpNextText}>
                   下次解锁: {data.nextUnlockAmount} LP ({data.nextUnlockDays}天后)
                 </Text>
@@ -333,8 +432,15 @@ export default function NodeScreen() {
 
               <TouchableOpacity
                 style={[styles.withdrawBtn, data.lpWithdrawable <= 0 && styles.withdrawBtnDisabled]}
+                onPress={() => {
+                  if (data.lpWithdrawable > 0) {
+                    setWithdrawAmount(data.lpWithdrawable.toString());
+                    setShowWithdrawModal(true);
+                  }
+                }}
                 disabled={data.lpWithdrawable <= 0}
               >
+                <FontAwesome6 name="arrow-up-from-bracket" size={14} color={data.lpWithdrawable > 0 ? COLORS.background : COLORS.textSecondary} />
                 <Text style={[styles.withdrawBtnText, data.lpWithdrawable <= 0 && styles.withdrawBtnTextDisabled]}>
                   撤回LP
                 </Text>
@@ -345,37 +451,156 @@ export default function NodeScreen() {
 
         {/* Reward History */}
         <View style={styles.rewardSection}>
-          <Text style={styles.sectionTitle}>最近分红</Text>
-          {data?.rewards.map((reward) => (
-            <View key={reward.id} style={styles.rewardItem}>
-              <View style={styles.rewardLeft}>
-                <View style={[
-                  styles.rewardIcon,
-                  { backgroundColor: reward.currency === 'USDT' ? 'rgba(0,200,151,0.15)' : 'rgba(245,166,35,0.15)' }
+          <View style={styles.sectionHeader}>
+            <FontAwesome6 name="clock-rotate-left" size={16} color={COLORS.primary} />
+            <Text style={styles.sectionTitle}>分红明细</Text>
+          </View>
+
+          {/* Filter Tabs */}
+          <View style={styles.filterTabs}>
+            <TouchableOpacity
+              style={[styles.filterTab, rewardFilter === 'all' && styles.filterTabActive]}
+              onPress={() => setRewardFilter('all')}
+            >
+              <Text style={[styles.filterTabText, rewardFilter === 'all' && styles.filterTabTextActive]}>全部</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.filterTab, rewardFilter === 'node' && styles.filterTabActive]}
+              onPress={() => setRewardFilter('node')}
+            >
+              <Text style={[styles.filterTabText, rewardFilter === 'node' && styles.filterTabTextActive]}>节点分红</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.filterTab, rewardFilter === 'lp' && styles.filterTabActive]}
+              onPress={() => setRewardFilter('lp')}
+            >
+              <Text style={[styles.filterTabText, rewardFilter === 'lp' && styles.filterTabTextActive]}>做市商分红</Text>
+            </TouchableOpacity>
+          </View>
+
+          {filteredRewards.length > 0 ? (
+            filteredRewards.map((reward) => (
+              <View key={reward.id} style={styles.rewardItem}>
+                <View style={styles.rewardLeft}>
+                  <View style={[
+                    styles.rewardIcon,
+                    { backgroundColor: reward.currency === 'USDT' ? 'rgba(0,200,151,0.15)' : 'rgba(245,166,35,0.15)' }
+                  ]}>
+                    <FontAwesome6
+                      name={reward.type === 'node' ? 'cubes' : 'droplet'}
+                      size={12}
+                      color={reward.currency === 'USDT' ? COLORS.success : COLORS.primary}
+                    />
+                  </View>
+                  <View>
+                    <Text style={styles.rewardDate}>{reward.date}</Text>
+                    <Text style={styles.rewardType}>
+                      {reward.type === 'node' ? '节点分红' : '做市商分红'}
+                    </Text>
+                  </View>
+                </View>
+                <Text style={[
+                  styles.rewardAmount,
+                  { color: reward.currency === 'USDT' ? COLORS.success : COLORS.primary }
                 ]}>
-                  <FontAwesome6
-                    name={reward.type === 'node' ? 'cubes' : 'droplet'}
-                    size={12}
-                    color={reward.currency === 'USDT' ? COLORS.success : COLORS.primary}
-                  />
-                </View>
-                <View>
-                  <Text style={styles.rewardDate}>{reward.date}</Text>
-                  <Text style={styles.rewardType}>
-                    {reward.type === 'node' ? '节点分红' : 'LP分红'}
-                  </Text>
-                </View>
+                  +{reward.amount} {reward.currency}
+                </Text>
               </View>
-              <Text style={[
-                styles.rewardAmount,
-                { color: reward.currency === 'USDT' ? COLORS.success : COLORS.primary }
-              ]}>
-                +{reward.amount} {reward.currency}
-              </Text>
+            ))
+          ) : (
+            <View style={styles.emptyRewards}>
+              <FontAwesome6 name="inbox" size={32} color={COLORS.textSecondary} />
+              <Text style={styles.emptyRewardsText}>暂无分红记录</Text>
             </View>
-          ))}
+          )}
         </View>
       </ScrollView>
+
+      {/* Withdraw LP Modal */}
+      <Modal
+        visible={showWithdrawModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowWithdrawModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>撤回LP</Text>
+              <TouchableOpacity onPress={() => setShowWithdrawModal(false)}>
+                <FontAwesome6 name="xmark" size={20} color={COLORS.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.modalBody}>
+              <Text style={styles.modalDesc}>
+                可撤回额度: <Text style={styles.modalHighlight}>{data?.lpWithdrawable.toFixed(2)} LP</Text>
+              </Text>
+
+              <View style={styles.modalInputRow}>
+                <TextInput
+                  style={styles.modalInput}
+                  value={withdrawAmount}
+                  onChangeText={setWithdrawAmount}
+                  placeholder="输入撤回数量"
+                  placeholderTextColor={COLORS.textSecondary}
+                  keyboardType="numeric"
+                />
+                <Text style={styles.modalInputSuffix}>LP</Text>
+              </View>
+
+              <View style={styles.modalQuickAmounts}>
+                {[25, 50, 75, 100].map((percent) => (
+                  <TouchableOpacity
+                    key={percent}
+                    style={styles.modalQuickBtn}
+                    onPress={() => {
+                      const amount = ((data?.lpWithdrawable || 0) * percent / 100).toFixed(2);
+                      setWithdrawAmount(amount);
+                    }}
+                  >
+                    <Text style={styles.modalQuickText}>{percent}%</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <View style={styles.modalEstimate}>
+                <Text style={styles.modalEstimateLabel}>预计获得:</Text>
+                <Text style={styles.modalEstimateValue}>
+                  {((parseFloat(withdrawAmount) || 0) * 0.5).toFixed(2)} TFT + {((parseFloat(withdrawAmount) || 0) * 0.5).toFixed(2)} USDT
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.modalFooter}>
+              <TouchableOpacity
+                style={styles.modalCancelBtn}
+                onPress={() => setShowWithdrawModal(false)}
+              >
+                <Text style={styles.modalCancelText}>取消</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalConfirmBtn, withdrawing && styles.modalConfirmBtnDisabled]}
+                onPress={handleWithdrawLP}
+                disabled={withdrawing}
+              >
+                <LinearGradient
+                  colors={COLORS.GRADIENT_PRIMARY}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.modalConfirmGradient}
+                >
+                  {withdrawing ? (
+                    <ActivityIndicator color={COLORS.background} size="small" />
+                  ) : (
+                    <Text style={styles.modalConfirmText}>确认撤回</Text>
+                  )}
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </Screen>
   );
 }
@@ -384,7 +609,9 @@ function StatCard({ label, value, icon, color }: { label: string; value: string;
   return (
     <View style={styles.statCard}>
       <View style={styles.statHeader}>
-        <FontAwesome6 name={icon as any} size={12} color={color} />
+        <View style={[styles.statIconBg, { backgroundColor: `${color}20` }]}>
+          <FontAwesome6 name={icon as any} size={12} color={color} />
+        </View>
         <Text style={styles.statLabel}>{label}</Text>
       </View>
       <Text style={[styles.statValue, { color }]}>{value}</Text>
@@ -397,129 +624,248 @@ const styles = StyleSheet.create({
   scrollView: { flex: 1 },
   scrollContent: { paddingTop: 56, paddingBottom: 120, paddingHorizontal: 16 },
   header: { marginBottom: 20 },
-  title: { fontSize: 20, fontWeight: '700', color: COLORS.textPrimary },
-  subtitle: { fontSize: 12, color: COLORS.textSecondary, marginTop: 2 },
+  title: { fontSize: 24, fontWeight: '700', color: COLORS.textPrimary, letterSpacing: 0.5 },
+  subtitle: { fontSize: 13, color: COLORS.textSecondary, marginTop: 4 },
+
   // Stats Grid
   statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 16 },
   statCard: {
-    width: '48%',
+    flex: 1,
+    minWidth: '45%',
     backgroundColor: COLORS.surface,
-    borderRadius: 12,
+    borderRadius: 16,
     padding: 14,
     borderWidth: 1,
     borderColor: COLORS.border,
-    flexGrow: 1,
   },
   statHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 },
+  statIconBg: {
+    width: 24,
+    height: 24,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   statLabel: { fontSize: 11, color: COLORS.textSecondary, fontWeight: '500' },
-  statValue: { fontSize: 18, fontWeight: '700', fontFamily: 'monospace' },
+  statValue: { fontSize: 20, fontWeight: '700' },
+
   // Claim Card
   claimCard: {
     backgroundColor: COLORS.surface,
-    borderRadius: 12,
+    borderRadius: 20,
     padding: 16,
+    marginBottom: 20,
     borderWidth: 1,
     borderColor: COLORS.border,
-    marginBottom: 16,
   },
-  claimInfo: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 14 },
+  claimInfo: { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center', marginBottom: 16 },
+  claimItem: { alignItems: 'center' },
+  claimDivider: { width: 1, height: 30, backgroundColor: COLORS.border },
   claimLabel: { fontSize: 11, color: COLORS.textSecondary, marginBottom: 4 },
-  claimValue: { fontSize: 20, fontWeight: '700', color: COLORS.textPrimary, fontFamily: 'monospace' },
-  claimBtn: { borderRadius: 10, overflow: 'hidden' },
-  claimBtnDisabled: { opacity: 0.6 },
-  claimGradient: { paddingVertical: 14, alignItems: 'center', borderRadius: 10 },
-  claimBtnText: { fontSize: 14, fontWeight: '700', color: COLORS.background, letterSpacing: 0.5 },
+  claimValue: { fontSize: 18, fontWeight: '700', color: COLORS.textPrimary },
+  claimBtn: { borderRadius: 12, overflow: 'hidden' },
+  claimBtnDisabled: { opacity: 0.5 },
+  claimGradient: { paddingVertical: 14, paddingHorizontal: 20, borderRadius: 12 },
+  claimBtnContent: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8 },
+  claimBtnText: { fontSize: 14, fontWeight: '600', color: COLORS.background, textAlign: 'center' },
+
   // Acquire Section
-  acquireSection: { marginBottom: 16 },
-  sectionTitle: { fontSize: 15, fontWeight: '700', color: COLORS.textPrimary, marginBottom: 12 },
-  methodTabs: { flexDirection: 'row', gap: 8, marginBottom: 12 },
+  acquireSection: { marginBottom: 20 },
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
+  sectionTitle: { fontSize: 16, fontWeight: '600', color: COLORS.textPrimary },
+  methodTabs: { flexDirection: 'row', gap: 10, marginBottom: 12 },
   methodTab: {
     flex: 1,
-    paddingVertical: 10,
-    borderRadius: 8,
-    backgroundColor: COLORS.surface,
+    flexDirection: 'row',
+    justifyContent: 'center',
     alignItems: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    borderRadius: 10,
+    backgroundColor: COLORS.surface,
     borderWidth: 1,
     borderColor: COLORS.border,
   },
-  methodTabActive: { borderColor: COLORS.primary, backgroundColor: 'rgba(245,166,35,0.1)' },
-  methodTabText: { fontSize: 13, color: COLORS.textSecondary, fontWeight: '600' },
+  methodTabActive: { borderColor: COLORS.primary, backgroundColor: `${COLORS.primary}10` },
+  methodTabText: { fontSize: 13, color: COLORS.textSecondary, fontWeight: '500' },
   methodTabTextActive: { color: COLORS.primary },
   acquireCard: {
     backgroundColor: COLORS.surface,
-    borderRadius: 12,
+    borderRadius: 16,
     padding: 16,
     borderWidth: 1,
     borderColor: COLORS.border,
   },
-  acquireDesc: { fontSize: 12, color: COLORS.textSecondary, marginBottom: 12 },
+  acquireDescRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
+  acquireDesc: { fontSize: 13, color: COLORS.textSecondary },
   inputRow: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: COLORS.background,
-    borderRadius: 10,
+    borderRadius: 12,
+    paddingHorizontal: 14,
     borderWidth: 1,
     borderColor: COLORS.border,
-    marginBottom: 8,
+    marginBottom: 10,
   },
-  acquireInput: { flex: 1, padding: 14, fontSize: 18, fontWeight: '700', color: COLORS.textPrimary, fontFamily: 'monospace' },
-  inputSuffix: { paddingRight: 14, fontSize: 13, color: COLORS.textSecondary, fontWeight: '600' },
-  lpEquivalent: { marginBottom: 8 },
+  acquireInput: { flex: 1, fontSize: 16, color: COLORS.textPrimary, paddingVertical: 12, fontWeight: '600' },
+  inputSuffix: { fontSize: 13, color: COLORS.textSecondary, fontWeight: '500' },
+  quickAmounts: { flexDirection: 'row', gap: 8, marginBottom: 10 },
+  quickAmountBtn: {
+    flex: 1,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: COLORS.background,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  quickAmountText: { fontSize: 12, color: COLORS.textSecondary, fontWeight: '500' },
+  lpEquivalent: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10, paddingLeft: 4 },
   lpEquivText: { fontSize: 12, color: COLORS.textSecondary },
-  estimateText: { fontSize: 13, color: COLORS.primary, fontWeight: '600', marginBottom: 14 },
-  acquireBtn: { borderRadius: 10, overflow: 'hidden' },
-  acquireBtnDisabled: { opacity: 0.6 },
-  acquireBtnGradient: { paddingVertical: 14, alignItems: 'center', borderRadius: 10 },
-  acquireBtnText: { fontSize: 14, fontWeight: '700', color: COLORS.background, letterSpacing: 0.5 },
+  estimateText: { fontSize: 13, color: COLORS.textSecondary, marginBottom: 14, textAlign: 'center' },
+  estimateValue: { color: COLORS.primary, fontWeight: '700' },
+  acquireBtn: { borderRadius: 12, overflow: 'hidden' },
+  acquireBtnDisabled: { opacity: 0.5 },
+  acquireBtnGradient: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 14,
+  },
+  acquireBtnText: { fontSize: 14, fontWeight: '600', color: COLORS.background },
+
   // LP Section
-  lpSection: { marginBottom: 16 },
+  lpSection: { marginBottom: 20 },
   lpCard: {
     backgroundColor: COLORS.surface,
-    borderRadius: 12,
+    borderRadius: 16,
     padding: 16,
     borderWidth: 1,
     borderColor: COLORS.border,
   },
-  lpRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 },
+  lpRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  lpRowLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   lpLabel: { fontSize: 13, color: COLORS.textSecondary },
-  lpValue: { fontSize: 13, fontWeight: '600', color: COLORS.textPrimary, fontFamily: 'monospace' },
+  lpValue: { fontSize: 14, fontWeight: '600', color: COLORS.textPrimary },
   progressBar: {
     height: 6,
     backgroundColor: COLORS.background,
     borderRadius: 3,
     overflow: 'hidden',
-    marginBottom: 10,
+    marginBottom: 12,
   },
   progressFill: { height: '100%', borderRadius: 3 },
-  lpNextUnlock: { marginBottom: 12 },
+  lpNextUnlock: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 14 },
   lpNextText: { fontSize: 12, color: COLORS.textSecondary },
   withdrawBtn: {
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: COLORS.primary,
-    borderRadius: 10,
-    paddingVertical: 12,
+    flexDirection: 'row',
+    justifyContent: 'center',
     alignItems: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    borderRadius: 12,
+    backgroundColor: COLORS.primary,
   },
-  withdrawBtnDisabled: { borderColor: COLORS.border },
-  withdrawBtnText: { fontSize: 13, fontWeight: '700', color: COLORS.primary },
+  withdrawBtnDisabled: { backgroundColor: COLORS.background },
+  withdrawBtnText: { fontSize: 14, fontWeight: '600', color: COLORS.background },
   withdrawBtnTextDisabled: { color: COLORS.textSecondary },
-  // Rewards
+
+  // Reward Section
   rewardSection: { marginBottom: 20 },
+  filterTabs: { flexDirection: 'row', gap: 8, marginBottom: 12 },
+  filterTab: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  filterTabActive: { borderColor: COLORS.primary, backgroundColor: `${COLORS.primary}15` },
+  filterTabText: { fontSize: 12, color: COLORS.textSecondary, fontWeight: '500' },
+  filterTabTextActive: { color: COLORS.primary },
   rewardItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     backgroundColor: COLORS.surface,
-    borderRadius: 10,
-    padding: 12,
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 8,
     borderWidth: 1,
     borderColor: COLORS.border,
-    marginBottom: 8,
   },
   rewardLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  rewardIcon: { width: 28, height: 28, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
-  rewardDate: { fontSize: 12, color: COLORS.textSecondary, fontFamily: 'monospace' },
-  rewardType: { fontSize: 12, color: COLORS.textPrimary, fontWeight: '500' },
-  rewardAmount: { fontSize: 14, fontWeight: '700', fontFamily: 'monospace' },
+  rewardIcon: { width: 32, height: 32, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
+  rewardDate: { fontSize: 13, color: COLORS.textPrimary, fontWeight: '500' },
+  rewardType: { fontSize: 11, color: COLORS.textSecondary, marginTop: 2 },
+  rewardAmount: { fontSize: 14, fontWeight: '700' },
+  emptyRewards: { alignItems: 'center', paddingVertical: 30 },
+  emptyRewardsText: { fontSize: 13, color: COLORS.textSecondary, marginTop: 10 },
+
+  // Modal
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.6)',
+  },
+  modalContent: {
+    backgroundColor: COLORS.surface,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 20,
+  },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+  modalTitle: { fontSize: 18, fontWeight: '700', color: COLORS.textPrimary },
+  modalBody: { marginBottom: 20 },
+  modalDesc: { fontSize: 13, color: COLORS.textSecondary, marginBottom: 14, textAlign: 'center' },
+  modalHighlight: { color: COLORS.primary, fontWeight: '700' },
+  modalInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.background,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    marginBottom: 12,
+  },
+  modalInput: { flex: 1, fontSize: 18, color: COLORS.textPrimary, paddingVertical: 14, fontWeight: '600' },
+  modalInputSuffix: { fontSize: 14, color: COLORS.textSecondary, fontWeight: '500' },
+  modalQuickAmounts: { flexDirection: 'row', gap: 8, marginBottom: 16 },
+  modalQuickBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 10,
+    backgroundColor: COLORS.background,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  modalQuickText: { fontSize: 13, color: COLORS.textSecondary, fontWeight: '500' },
+  modalEstimate: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: COLORS.background,
+    borderRadius: 12,
+    padding: 14,
+  },
+  modalEstimateLabel: { fontSize: 13, color: COLORS.textSecondary },
+  modalEstimateValue: { fontSize: 14, fontWeight: '600', color: COLORS.primary },
+  modalFooter: { flexDirection: 'row', gap: 12 },
+  modalCancelBtn: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    backgroundColor: COLORS.background,
+    alignItems: 'center',
+  },
+  modalCancelText: { fontSize: 14, fontWeight: '600', color: COLORS.textSecondary },
+  modalConfirmBtn: { flex: 1, borderRadius: 12, overflow: 'hidden' },
+  modalConfirmBtnDisabled: { opacity: 0.6 },
+  modalConfirmGradient: { paddingVertical: 14, alignItems: 'center' },
+  modalConfirmText: { fontSize: 14, fontWeight: '600', color: COLORS.background },
 });

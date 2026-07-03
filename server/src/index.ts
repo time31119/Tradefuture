@@ -241,6 +241,25 @@ app.post('/api/v1/node/acquire', (req, res) => {
   });
 });
 
+// POST /api/v1/node/withdraw-lp - Withdraw LP from node
+app.post('/api/v1/node/withdraw-lp', (req, res) => {
+  const { lpAmount } = req.body;
+
+  if (!lpAmount || parseFloat(lpAmount) <= 0) {
+    return res.status(400).json({ success: false, error: 'Invalid LP amount' });
+  }
+
+  res.json({
+    success: true,
+    data: {
+      lpWithdrawn: parseFloat(lpAmount),
+      tftReturned: parseFloat(lpAmount) * 0.5,
+      usdtReturned: parseFloat(lpAmount) * 0.5,
+      txHash: '0x' + Array(64).fill(0).map(() => Math.floor(Math.random() * 16).toString(16)).join(''),
+    },
+  });
+});
+
 // ==================== Swap API ====================
 
 // GET /api/v1/swap/balances - Get user balances
