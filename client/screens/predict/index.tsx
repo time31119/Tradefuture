@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,13 +9,16 @@ import {
   Alert,
   ActivityIndicator,
   Dimensions,
+  Modal,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { Screen } from '@/components/Screen';
 import { useWallet } from '@/contexts/WalletContext';
 import { useFocusEffect } from 'expo-router';
+import { useSafeRouter } from '@/hooks/useSafeRouter';
 import { COLORS } from '@/utils/theme';
+// Chart data is rendered using simple bar visualization
 
 const EXPO_PUBLIC_BACKEND_BASE_URL = process.env.EXPO_PUBLIC_BACKEND_BASE_URL;
 const { width } = Dimensions.get('window');
@@ -39,16 +42,40 @@ interface PredictionData {
   participationCount: number;
   maxParticipation: number;
   isVIP: boolean;
+  insurancePoolBalance: number;
+  currentRoundInsurance: number;
+  usdtBalance: number;
+}
+
+interface KlineData {
+  time: string;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+}
+
+interface BtcPrice {
+  price: number;
+  change24h: number;
+  high24h: number;
+  low24h: number;
 }
 
 export default function PredictScreen() {
   const { isConnected } = useWallet();
+  const router = useSafeRouter();
   const [data, setData] = useState<PredictionData | null>(null);
   const [direction, setDirection] = useState<'up' | 'down'>('up');
   const [amount, setAmount] = useState('');
   const [filter, setFilter] = useState('all');
   const [submitting, setSubmitting] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [btcPrice, setBtcPrice] = useState<BtcPrice | null>(null);
+  const [klines, setKlines] = useState<KlineData[]>([]);
+  const [countdown, setCountdown] = useState(0);
+  const [confirmModalVisible, setConfirmModalVisible] = useState(false);
+  const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchData = useCallback(async () => {
     try {
@@ -56,6 +83,7 @@ export default function PredictScreen() {
       const result = await res.json();
       if (result.success) {
         setData(result.data);
+        setCountdown(result.data.timeLeftSeconds);
       }
     } catch (error) {
       console.error('Fetch predictions error:', error);
@@ -64,11 +92,66 @@ export default function PredictScreen() {
     }
   }, []);
 
+  const fetchBtcPrice = useCallback(async () => {
+    try {
+      const res = await fetch(`${EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/btc/price`);
+      const result = await res.json();
+      if (result.success) {
+        setBtcPrice(result.data);
+      }
+    } catch (error) {
+      console.error('Fetch BTC price error:', error);
+    }
+  }, []);
+
+  const fetchKlines = useCallback(async () => {
+    try {
+      const res = await fetch(`${EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/btc/kline?count=20`);
+      const result = await res.json();
+      if (result.success) {
+        setKlines(result.data);
+      }
+    } catch (error) {
+      console.error('Fetch klines error:', error);
+    }
+  }, []);
+
   useFocusEffect(
     useCallback(() => {
       fetchData();
-    }, [fetchData])
+      fetchBtcPrice();
+      fetchKlines();
+    }, [fetchData, fetchBtcPrice, fetchKlines])
   );
+
+  // Countdown timer
+  useEffect(() => {
+    if (countdownRef.current) {
+      clearInterval(countdownRef.current);
+    }
+    countdownRef.current = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) {
+          fetchData();
+          return 300;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => {
+      if (countdownRef.current) {
+        clearInterval(countdownRef.current);
+      }
+    };
+  }, [fetchData]);
+
+  // Auto refresh BTC price every 30 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchBtcPrice();
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [fetchBtcPrice]);
 
   const handleSubmit = async () => {
     if (!isConnected) {
@@ -80,7 +163,15 @@ export default function PredictScreen() {
       Alert.alert('金额无效', '最低投注额为 1 USDT');
       return;
     }
+    if (amountNum > (data?.usdtBalance || 0)) {
+      Alert.alert('余额不足', 'USDT余额不足');
+      return;
+    }
+    setConfirmModalVisible(true);
+  };
 
+  const confirmSubmit = async () => {
+    setConfirmModalVisible(false);
     setSubmitting(true);
     try {
       /**
@@ -91,16 +182,17 @@ export default function PredictScreen() {
       const res = await fetch(`${EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/predictions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ direction, amount: amountNum }),
+        body: JSON.stringify({ direction, amount: parseFloat(amount) }),
       });
       const result = await res.json();
       if (result.success) {
         setAmount('');
         fetchData();
-        Alert.alert('成功', '预测已提交！');
+        Alert.alert('提交成功', '预测已提交，等待结算！');
       }
     } catch (error) {
       console.error('Submit prediction error:', error);
+      Alert.alert('提交失败', '请稍后重试');
     } finally {
       setSubmitting(false);
     }
@@ -120,6 +212,7 @@ export default function PredictScreen() {
       const result = await res.json();
       if (result.success) {
         fetchData();
+        Alert.alert('领取成功', '收益已到账！');
       }
     } catch (error) {
       console.error('Claim error:', error);
@@ -132,17 +225,27 @@ export default function PredictScreen() {
     return `${m}:${s}`;
   };
 
-  const estimatedReturn = (odds: number) => {
-    const amt = parseFloat(amount) || 0;
-    return (amt * odds).toFixed(2);
+  const formatPrice = (price: number) => {
+    return price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   };
+
+  const currentOdds = direction === 'up' ? (data?.oddsUp || 1.8) : (data?.oddsDown || 2.2);
+  const amountNum = parseFloat(amount) || 0;
+  const estimatedReturn = (amountNum * currentOdds).toFixed(2);
+  const netProfit = (amountNum * currentOdds - amountNum).toFixed(2);
+  const insuranceAmount = (amountNum * 0.2).toFixed(2);
 
   const filteredPredictions = data?.predictions.filter(p => {
     if (filter === 'all') return true;
     return p.status === filter;
   }) || [];
 
-  const quickAmounts = [50, 100, 500];
+  const quickAmounts = [50, 100, 500, 1000];
+
+  const chartData = klines.map((k) => ({
+    value: k.close,
+    label: k.time.slice(-5),
+  }));
 
   if (loading) {
     return (
@@ -161,20 +264,63 @@ export default function PredictScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Title Bar */}
+        {/* Title Bar with Countdown */}
         <View style={styles.titleBar}>
           <View>
             <Text style={styles.title}>BTC/USDT 预测</Text>
-            <Text style={styles.subtitle}>5分钟K线预测</Text>
+            <Text style={styles.subtitle}>5分钟K线 · 第 #{data?.currentRound} 期</Text>
           </View>
-          <View style={styles.roundInfo}>
-            <Text style={styles.roundText}>第 #{data?.currentRound} 期</Text>
-            <View style={styles.timerBadge}>
-              <FontAwesome6 name="clock" size={10} color={COLORS.primary} />
-              <Text style={styles.timerText}>{data ? formatTime(data.timeLeftSeconds) : '--:--'}</Text>
-            </View>
+          <View style={styles.timerBadge}>
+            <FontAwesome6 name="clock" size={12} color={COLORS.primary} />
+            <Text style={styles.timerText}>{formatTime(countdown)}</Text>
           </View>
         </View>
+
+        {/* BTC Price Card */}
+        {btcPrice && (
+          <View style={styles.priceCard}>
+            <View style={styles.priceHeader}>
+              <Text style={styles.priceLabel}>BTC/USD</Text>
+              <Text style={[
+                styles.changeBadge,
+                { backgroundColor: btcPrice.change24h >= 0 ? 'rgba(0,200,151,0.15)' : 'rgba(255,107,107,0.15)' }
+              ]}>
+                {btcPrice.change24h >= 0 ? '+' : ''}{btcPrice.change24h.toFixed(2)}%
+              </Text>
+            </View>
+            <Text style={styles.priceValue}>${formatPrice(btcPrice.price)}</Text>
+            <View style={styles.priceRange}>
+              <Text style={styles.rangeText}>高: ${formatPrice(btcPrice.high24h)}</Text>
+              <Text style={styles.rangeText}>低: ${formatPrice(btcPrice.low24h)}</Text>
+            </View>
+            {/* Price Chart - Simple Bar Visualization */}
+            {chartData.length > 0 && (
+              <View style={styles.chartContainer}>
+                <View style={styles.miniChart}>
+                  {chartData.slice(-15).map((item, index) => {
+                    const maxVal = Math.max(...chartData.slice(-15).map(d => d.value));
+                    const minVal = Math.min(...chartData.slice(-15).map(d => d.value));
+                    const range = maxVal - minVal || 1;
+                    const height = ((item.value - minVal) / range) * 60 + 20;
+                    const isUp = index > 0 ? item.value >= chartData.slice(-15)[index - 1].value : true;
+                    return (
+                      <View
+                        key={index}
+                        style={[
+                          styles.miniChartBar,
+                          {
+                            height,
+                            backgroundColor: isUp ? 'rgba(0,200,151,0.6)' : 'rgba(255,107,107,0.6)',
+                          }
+                        ]}
+                      />
+                    );
+                  })}
+                </View>
+              </View>
+            )}
+          </View>
+        )}
 
         {/* Betting Panel */}
         <View style={styles.betPanel}>
@@ -188,12 +334,12 @@ export default function PredictScreen() {
                 colors={direction === 'up' ? ['rgba(0,200,151,0.2)', 'rgba(0,200,151,0.05)'] : ['transparent', 'transparent']}
                 style={styles.directionGradient}
               >
-                <FontAwesome6 name="arrow-trend-up" size={20} color={direction === 'up' ? COLORS.success : COLORS.textSecondary} />
+                <FontAwesome6 name="arrow-trend-up" size={22} color={direction === 'up' ? COLORS.success : COLORS.textSecondary} />
                 <Text style={[styles.directionText, { color: direction === 'up' ? COLORS.success : COLORS.textSecondary }]}>
                   看涨
                 </Text>
                 <Text style={[styles.oddsText, { color: direction === 'up' ? COLORS.success : COLORS.textSecondary }]}>
-                  {data?.oddsUp}x
+                  {data?.oddsUp?.toFixed(2)}x
                 </Text>
               </LinearGradient>
             </TouchableOpacity>
@@ -205,18 +351,28 @@ export default function PredictScreen() {
                 colors={direction === 'down' ? ['rgba(255,107,107,0.2)', 'rgba(255,107,107,0.05)'] : ['transparent', 'transparent']}
                 style={styles.directionGradient}
               >
-                <FontAwesome6 name="arrow-trend-down" size={20} color={direction === 'down' ? COLORS.danger : COLORS.textSecondary} />
+                <FontAwesome6 name="arrow-trend-down" size={22} color={direction === 'down' ? COLORS.danger : COLORS.textSecondary} />
                 <Text style={[styles.directionText, { color: direction === 'down' ? COLORS.danger : COLORS.textSecondary }]}>
                   看跌
                 </Text>
                 <Text style={[styles.oddsText, { color: direction === 'down' ? COLORS.danger : COLORS.textSecondary }]}>
-                  {data?.oddsDown}x
+                  {data?.oddsDown?.toFixed(2)}x
                 </Text>
               </LinearGradient>
             </TouchableOpacity>
           </View>
 
-          <Text style={styles.betLabel}>投注金额 (USDT)</Text>
+          {/* Amount Input with Balance */}
+          <View style={styles.amountHeader}>
+            <Text style={styles.betLabel}>投注金额 (USDT)</Text>
+            <View style={styles.balanceRow}>
+              <Text style={styles.balanceLabel}>余额:</Text>
+              <Text style={styles.balanceValue}>{data?.usdtBalance?.toFixed(2) || '0.00'}</Text>
+              <TouchableOpacity onPress={() => setAmount((data?.usdtBalance || 0).toString())}>
+                <Text style={styles.maxBtn}>MAX</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
           <View style={styles.amountInputContainer}>
             <TextInput
               style={styles.amountInput}
@@ -231,28 +387,47 @@ export default function PredictScreen() {
             {quickAmounts.map((qa) => (
               <TouchableOpacity
                 key={qa}
-                style={styles.quickAmountBtn}
+                style={[styles.quickAmountBtn, parseFloat(amount) === qa && styles.quickAmountBtnActive]}
                 onPress={() => setAmount(qa.toString())}
               >
-                <Text style={styles.quickAmountText}>${qa}</Text>
+                <Text style={[styles.quickAmountText, parseFloat(amount) === qa && styles.quickAmountTextActive]}>
+                  ${qa}
+                </Text>
               </TouchableOpacity>
             ))}
           </View>
 
-          {/* Estimated Return */}
-          <View style={styles.estimateRow}>
-            <Text style={styles.estimateLabel}>预估收益</Text>
-            <Text style={styles.estimateValue}>
-              {estimatedReturn(direction === 'up' ? (data?.oddsUp || 1.8) : (data?.oddsDown || 2.2))} USDT
-            </Text>
-          </View>
+          {/* Estimated Return Details */}
+          {amountNum > 0 && (
+            <View style={styles.returnDetails}>
+              <View style={styles.returnRow}>
+                <Text style={styles.returnLabel}>预估赔率</Text>
+                <Text style={styles.returnValue}>{currentOdds.toFixed(2)}x</Text>
+              </View>
+              <View style={styles.returnRow}>
+                <Text style={styles.returnLabel}>预估收益</Text>
+                <Text style={styles.returnValueHighlight}>{estimatedReturn} USDT</Text>
+              </View>
+              <View style={styles.returnRow}>
+                <Text style={styles.returnLabel}>净收益</Text>
+                <Text style={[styles.returnValue, { color: COLORS.success }]}>+{netProfit} USDT</Text>
+              </View>
+            </View>
+          )}
 
           {/* Insurance Notice */}
           <View style={styles.insuranceNotice}>
-            <FontAwesome6 name="shield-halved" size={12} color={COLORS.primary} />
-            <Text style={styles.insuranceNoticeText}>
-              20%投注额将注入保险仓 → 买入TFT
-            </Text>
+            <FontAwesome6 name="shield-halved" size={14} color={COLORS.primary} />
+            <View style={styles.insuranceNoticeContent}>
+              <Text style={styles.insuranceNoticeText}>
+                20%投注额注入保险仓 → 买入TFT
+              </Text>
+              {amountNum > 0 && (
+                <Text style={styles.insuranceAmountText}>
+                  本轮注入: {insuranceAmount} USDT
+                </Text>
+              )}
+            </View>
           </View>
 
           {/* Submit Button */}
@@ -283,8 +458,10 @@ export default function PredictScreen() {
           <View style={styles.statusBar}>
             {data.isVIP ? (
               <View style={styles.statusContent}>
-                <FontAwesome6 name="crown" size={14} color={COLORS.primary} />
-                <Text style={styles.statusText}>VIP · 无限次预测</Text>
+                <View style={styles.vipBadge}>
+                  <FontAwesome6 name="crown" size={12} color={COLORS.primary} />
+                </View>
+                <Text style={styles.statusText}>VIP用户 · 无限次预测</Text>
               </View>
             ) : (
               <View style={styles.statusContent}>
@@ -292,11 +469,29 @@ export default function PredictScreen() {
                 <Text style={styles.statusText}>
                   本期已参与 {data.participationCount}/{data.maxParticipation} 次
                 </Text>
-                <TouchableOpacity>
+                <TouchableOpacity onPress={() => router.push('/profile')}>
                   <Text style={styles.upgradeText}> 升级VIP →</Text>
                 </TouchableOpacity>
               </View>
             )}
+          </View>
+        )}
+
+        {/* Insurance Pool Status */}
+        {data && (
+          <View style={styles.insurancePoolCard}>
+            <View style={styles.insurancePoolHeader}>
+              <FontAwesome6 name="shield-halved" size={16} color={COLORS.primary} />
+              <Text style={styles.insurancePoolTitle}>保险仓状态</Text>
+            </View>
+            <View style={styles.insurancePoolRow}>
+              <Text style={styles.insurancePoolLabel}>总余额</Text>
+              <Text style={styles.insurancePoolValue}>{data.insurancePoolBalance?.toLocaleString()} TFT</Text>
+            </View>
+            <View style={styles.insurancePoolRow}>
+              <Text style={styles.insurancePoolLabel}>本轮注入</Text>
+              <Text style={styles.insurancePoolValueHighlight}>{data.currentRoundInsurance} TFT</Text>
+            </View>
           </View>
         )}
 
@@ -322,7 +517,11 @@ export default function PredictScreen() {
 
           {filteredPredictions.length === 0 ? (
             <View style={styles.emptyState}>
+              <FontAwesome6 name="chart-line" size={32} color={COLORS.textSecondary} />
               <Text style={styles.emptyText}>暂无预测记录</Text>
+              <TouchableOpacity style={styles.emptyActionBtn} onPress={() => router.push('/predict')}>
+                <Text style={styles.emptyActionText}>去预测</Text>
+              </TouchableOpacity>
             </View>
           ) : (
             <View style={styles.historyList}>
@@ -366,6 +565,67 @@ export default function PredictScreen() {
           )}
         </View>
       </ScrollView>
+
+      {/* Confirm Modal */}
+      <Modal visible={confirmModalVisible} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>确认投注</Text>
+              <TouchableOpacity onPress={() => setConfirmModalVisible(false)}>
+                <FontAwesome6 name="xmark" size={20} color={COLORS.textSecondary} />
+              </TouchableOpacity>
+            </View>
+            <View style={styles.modalBody}>
+              <View style={styles.confirmRow}>
+                <Text style={styles.confirmLabel}>方向</Text>
+                <View style={styles.confirmDirectionBadge}>
+                  <FontAwesome6
+                    name={direction === 'up' ? 'arrow-trend-up' : 'arrow-trend-down'}
+                    size={14}
+                    color={direction === 'up' ? COLORS.success : COLORS.danger}
+                  />
+                  <Text style={[styles.confirmDirectionText, { color: direction === 'up' ? COLORS.success : COLORS.danger }]}>
+                    {direction === 'up' ? '看涨' : '看跌'}
+                  </Text>
+                </View>
+              </View>
+              <View style={styles.confirmRow}>
+                <Text style={styles.confirmLabel}>投注金额</Text>
+                <Text style={styles.confirmValue}>{amount} USDT</Text>
+              </View>
+              <View style={styles.confirmRow}>
+                <Text style={styles.confirmLabel}>预估赔率</Text>
+                <Text style={styles.confirmValue}>{currentOdds.toFixed(2)}x</Text>
+              </View>
+              <View style={styles.confirmRow}>
+                <Text style={styles.confirmLabel}>预估收益</Text>
+                <Text style={[styles.confirmValue, { color: COLORS.primary }]}>{estimatedReturn} USDT</Text>
+              </View>
+              <View style={styles.confirmDivider} />
+              <View style={styles.confirmRow}>
+                <Text style={styles.confirmLabel}>保险仓注入</Text>
+                <Text style={styles.confirmValue}>{insuranceAmount} USDT</Text>
+              </View>
+            </View>
+            <View style={styles.modalFooter}>
+              <TouchableOpacity style={styles.modalCancelBtn} onPress={() => setConfirmModalVisible(false)}>
+                <Text style={styles.modalCancelText}>取消</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.modalConfirmBtn} onPress={confirmSubmit}>
+                <LinearGradient
+                  colors={COLORS.GRADIENT_PRIMARY}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.modalConfirmGradient}
+                >
+                  <Text style={styles.modalConfirmText}>确认投注</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </Screen>
   );
 }
@@ -387,8 +647,8 @@ const styles = StyleSheet.create({
   titleBar: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 20,
+    alignItems: 'center',
+    marginBottom: 16,
   },
   title: {
     fontSize: 20,
@@ -400,29 +660,78 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     marginTop: 2,
   },
-  roundInfo: {
-    alignItems: 'flex-end',
-    gap: 6,
-  },
-  roundText: {
-    fontSize: 12,
-    color: COLORS.textSecondary,
-    fontWeight: '600',
-  },
   timerBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 6,
     backgroundColor: 'rgba(245,166,35,0.15)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  timerText: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: COLORS.primary,
+    fontFamily: 'monospace',
+  },
+  // Price Card
+  priceCard: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    marginBottom: 16,
+  },
+  priceHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  priceLabel: {
+    fontSize: 13,
+    color: COLORS.textSecondary,
+    fontWeight: '600',
+  },
+  changeBadge: {
+    fontSize: 12,
+    fontWeight: '700',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
-  },
-  timerText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: COLORS.primary,
     fontFamily: 'monospace',
+  },
+  priceValue: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: COLORS.textPrimary,
+    fontFamily: 'monospace',
+    marginBottom: 8,
+  },
+  priceRange: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  rangeText: {
+    fontSize: 11,
+    color: COLORS.textSecondary,
+    fontFamily: 'monospace',
+  },
+  chartContainer: {
+    marginTop: 8,
+  },
+  miniChart: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    height: 60,
+    gap: 2,
+  },
+  miniChartBar: {
+    width: 8,
+    borderRadius: 2,
   },
   // Betting Panel
   betPanel: {
@@ -461,18 +770,46 @@ const styles = StyleSheet.create({
   },
   directionGradient: {
     alignItems: 'center',
-    paddingVertical: 16,
-    gap: 4,
+    paddingVertical: 18,
+    gap: 6,
   },
   directionText: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '700',
     letterSpacing: 1,
   },
   oddsText: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '800',
     fontFamily: 'monospace',
+  },
+  // Amount Input
+  amountHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 0,
+  },
+  balanceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  balanceLabel: {
+    fontSize: 11,
+    color: COLORS.textSecondary,
+  },
+  balanceValue: {
+    fontSize: 11,
+    color: COLORS.textPrimary,
+    fontWeight: '600',
+    fontFamily: 'monospace',
+  },
+  maxBtn: {
+    fontSize: 10,
+    color: COLORS.primary,
+    fontWeight: '700',
+    marginLeft: 4,
   },
   amountInputContainer: {
     backgroundColor: COLORS.background,
@@ -502,41 +839,69 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.border,
   },
+  quickAmountBtnActive: {
+    borderColor: COLORS.primary,
+    backgroundColor: 'rgba(245,166,35,0.1)',
+  },
   quickAmountText: {
     fontSize: 13,
     fontWeight: '600',
     color: COLORS.textSecondary,
   },
-  estimateRow: {
+  quickAmountTextActive: {
+    color: COLORS.primary,
+  },
+  // Return Details
+  returnDetails: {
+    backgroundColor: COLORS.background,
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 12,
+    gap: 8,
+  },
+  returnRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
-    paddingVertical: 8,
   },
-  estimateLabel: {
-    fontSize: 13,
+  returnLabel: {
+    fontSize: 12,
     color: COLORS.textSecondary,
   },
-  estimateValue: {
-    fontSize: 15,
+  returnValue: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: COLORS.textPrimary,
+    fontFamily: 'monospace',
+  },
+  returnValueHighlight: {
+    fontSize: 14,
     fontWeight: '700',
     color: COLORS.primary,
     fontFamily: 'monospace',
   },
   insuranceNotice: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
+    alignItems: 'flex-start',
+    gap: 8,
     backgroundColor: 'rgba(245,166,35,0.08)',
-    borderRadius: 8,
-    padding: 10,
+    borderRadius: 10,
+    padding: 12,
     marginBottom: 16,
+  },
+  insuranceNoticeContent: {
+    flex: 1,
+    gap: 2,
   },
   insuranceNoticeText: {
     fontSize: 11,
     color: COLORS.textSecondary,
     flex: 1,
+  },
+  insuranceAmountText: {
+    fontSize: 11,
+    color: COLORS.primary,
+    fontWeight: '600',
   },
   submitBtn: {
     borderRadius: 12,
@@ -564,12 +929,20 @@ const styles = StyleSheet.create({
     padding: 12,
     borderWidth: 1,
     borderColor: COLORS.border,
-    marginBottom: 16,
+    marginBottom: 12,
   },
   statusContent: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+  },
+  vipBadge: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: 'rgba(245,166,35,0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   statusText: {
     fontSize: 12,
@@ -579,6 +952,48 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: COLORS.primary,
     fontWeight: '600',
+  },
+  // Insurance Pool Card
+  insurancePoolCard: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 12,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    marginBottom: 16,
+  },
+  insurancePoolHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 10,
+  },
+  insurancePoolTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: COLORS.textPrimary,
+  },
+  insurancePoolRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  insurancePoolLabel: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+  },
+  insurancePoolValue: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: COLORS.textPrimary,
+    fontFamily: 'monospace',
+  },
+  insurancePoolValueHighlight: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: COLORS.primary,
+    fontFamily: 'monospace',
   },
   // History
   historySection: {
@@ -619,14 +1034,27 @@ const styles = StyleSheet.create({
   emptyState: {
     backgroundColor: COLORS.surface,
     borderRadius: 12,
-    padding: 24,
+    padding: 32,
     alignItems: 'center',
     borderWidth: 1,
     borderColor: COLORS.border,
+    gap: 12,
   },
   emptyText: {
     fontSize: 13,
     color: COLORS.textSecondary,
+  },
+  emptyActionBtn: {
+    backgroundColor: 'rgba(245,166,35,0.15)',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    marginTop: 4,
+  },
+  emptyActionText: {
+    fontSize: 12,
+    color: COLORS.primary,
+    fontWeight: '600',
   },
   historyList: {
     gap: 8,
@@ -689,4 +1117,107 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: COLORS.success,
   },
+  // Confirm Modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 16,
+    width: '100%',
+    maxWidth: 360,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  modalTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: COLORS.textPrimary,
+  },
+  modalBody: {
+    padding: 16,
+    gap: 12,
+  },
+  confirmRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  confirmLabel: {
+    fontSize: 13,
+    color: COLORS.textSecondary,
+  },
+  confirmValue: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.textPrimary,
+    fontFamily: 'monospace',
+  },
+  confirmDirectionBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(0,0,0,0.2)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  confirmDirectionText: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  confirmDivider: {
+    height: 1,
+    backgroundColor: COLORS.border,
+    marginVertical: 4,
+  },
+  modalFooter: {
+    flexDirection: 'row',
+    gap: 12,
+    padding: 16,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
+  },
+  modalCancelBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    alignItems: 'center',
+    borderRadius: 10,
+    backgroundColor: COLORS.background,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  modalCancelText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.textSecondary,
+  },
+  modalConfirmBtn: {
+    flex: 1,
+    borderRadius: 10,
+    overflow: 'hidden',
+  },
+  modalConfirmGradient: {
+    paddingVertical: 12,
+    alignItems: 'center',
+    borderRadius: 10,
+  },
+  modalConfirmText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: COLORS.background,
+  },
 });
+
