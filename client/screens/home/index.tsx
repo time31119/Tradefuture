@@ -18,6 +18,8 @@ import { Screen } from '@/components/Screen';
 import { useWallet } from '@/contexts/WalletContext';
 import { useFocusEffect } from 'expo-router';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
+import { ReinvestmentModal, ReinvestmentData } from '@/components/ReinvestmentModal';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { COLORS } from '@/utils/theme';
 
 const EXPO_PUBLIC_BACKEND_BASE_URL = process.env.EXPO_PUBLIC_BACKEND_BASE_URL || 'http://localhost:9091';
@@ -106,6 +108,11 @@ export default function HomeScreen() {
 
   // Insurance pool modal state
   const [insuranceModalVisible, setInsuranceModalVisible] = useState(false);
+
+  // Reinvestment modal state
+  const [reinvestmentModalVisible, setReinvestmentModalVisible] = useState(false);
+  const [reinvestmentData, setReinvestmentData] = useState<ReinvestmentData | null>(null);
+  const [showReinvestmentReminder, setShowReinvestmentReminder] = useState(false);
 
   // Claim loading state
   const [claimingId, setClaimingId] = useState<number | null>(null);
@@ -196,6 +203,65 @@ export default function HomeScreen() {
     await Promise.all([fetchOverview(), fetchPrice(), fetchKline(), fetchPredictions()]);
     setRefreshing(false);
   }, [fetchOverview, fetchPrice, fetchKline, fetchPredictions]);
+
+  // Check reinvestment requirement
+  const checkReinvestment = useCallback(async () => {
+    if (!isConnected || !wallet?.address) return;
+
+    try {
+      // Check backend for reinvestment status
+      const res = await fetch(`${EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/reinvestment/status?wallet=${wallet.address}`);
+      const data = await res.json();
+
+      if (data.success && data.data.user.needsReinvestment) {
+        // Need reinvestment
+        const reinvestmentInfo: ReinvestmentData = {
+          cumulativeLevelRewards: data.data.user.cumulativeLevelRewards,
+          reinvestmentAmount: data.data.rules.reinvestAmount,
+          deadline: new Date(Date.now() + data.data.rules.deadlineHours * 3600000).toISOString(),
+          triggeredAt: new Date().toISOString(),
+          benefitsPaused: data.data.user.isPaused,
+        };
+        setReinvestmentData(reinvestmentInfo);
+
+        // Check if we should show the modal (first time or reminder)
+        const lastShown = await AsyncStorage.getItem('reinvestment_modal_last_shown');
+        const now = Date.now();
+
+        if (!lastShown || now - parseInt(lastShown) > 3600000) { // Show every hour
+          setReinvestmentModalVisible(true);
+          await AsyncStorage.setItem('reinvestment_modal_last_shown', now.toString());
+        }
+
+        // Show reminder bar
+        setShowReinvestmentReminder(true);
+      } else {
+        setShowReinvestmentReminder(false);
+      }
+    } catch (error) {
+      console.error('Check reinvestment error:', error);
+    }
+  }, [isConnected, wallet?.address]);
+
+  // Check reinvestment on mount and when wallet connects
+  useEffect(() => {
+    checkReinvestment();
+  }, [checkReinvestment]);
+
+  // Handle reinvestment success
+  const handleReinvestmentSuccess = () => {
+    setReinvestmentModalVisible(false);
+    setShowReinvestmentReminder(false);
+    setReinvestmentData(null);
+    AsyncStorage.removeItem('reinvestment_modal_last_shown');
+    // Refresh data
+    fetchOverview();
+  };
+
+  // Handle dismiss reminder
+  const handleDismissReminder = () => {
+    setShowReinvestmentReminder(false);
+  };
 
   const formatNumber = (num: number, decimals = 2) => {
     return num.toLocaleString('en-US', {
@@ -389,6 +455,23 @@ export default function HomeScreen() {
             )}
           </View>
         </View>
+
+        {/* Reinvestment Reminder Bar */}
+        {showReinvestmentReminder && reinvestmentData && (
+          <TouchableOpacity
+            style={styles.reinvestmentReminderBar}
+            activeOpacity={0.8}
+            onPress={() => setReinvestmentModalVisible(true)}
+          >
+            <View style={styles.reinvestmentReminderContent}>
+              <FontAwesome6 name="triangle-exclamation" size={14} color="#F59E0B" />
+              <Text style={styles.reinvestmentReminderText} numberOfLines={1}>
+                VIP复投提醒：需在48小时内完成100 USDT复投
+              </Text>
+            </View>
+            <FontAwesome6 name="chevron-right" size={12} color="#F59E0B" />
+          </TouchableOpacity>
+        )}
 
         {/* Overview Cards - Clickable */}
         <View style={styles.overviewGrid}>
@@ -823,6 +906,15 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </TouchableOpacity>
       </Modal>
+
+      {/* Reinvestment Modal */}
+      <ReinvestmentModal
+        visible={reinvestmentModalVisible}
+        data={reinvestmentData}
+        onClose={() => setReinvestmentModalVisible(false)}
+        onReinvest={handleReinvestmentSuccess}
+        onDismiss={handleDismissReminder}
+      />
     </Screen>
   );
 }
@@ -958,6 +1050,30 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: COLORS.textPrimary,
+  },
+  // Reinvestment Reminder Bar
+  reinvestmentReminderBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(245, 158, 11, 0.1)',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.3)',
+  },
+  reinvestmentReminderContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+  },
+  reinvestmentReminderText: {
+    fontSize: 13,
+    color: '#F59E0B',
+    fontWeight: '600',
+    flex: 1,
   },
   headerRight: {
     flexDirection: 'row',

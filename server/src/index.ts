@@ -746,6 +746,158 @@ app.get('/api/v1/prediction/economics', (req, res) => {
   });
 });
 
+// ==================== Reinvestment API ====================
+
+// GET /api/v1/reinvestment/status - Get user's reinvestment status
+app.get('/api/v1/reinvestment/status', (req, res) => {
+  // Simulated data - in production, this would query the blockchain
+  const walletAddress = req.query.wallet as string;
+  
+  res.json({
+    success: true,
+    data: {
+      // 复投规则
+      rules: {
+        threshold: 200, // 见点奖励累计达200 USDT触发
+        reinvestAmount: 100, // 复投金额100 USDT
+        deadlineHours: 48, // 48小时内完成
+        remainingAmount: 100, // 剩余可自由支配金额
+      },
+      // 用户状态
+      user: {
+        cumulativeLevelRewards: 185.50, // 累计见点奖励
+        needsReinvestment: false, // 是否需要复投
+        hasPendingReinvestment: false, // 是否有待处理的复投
+        isPaused: false, // 是否被暂停权益
+        totalReinvestments: 0, // 已完成复投次数
+        totalLevelRewardsEarned: 185.50, // 历史总见点奖励
+      },
+      // 复投分配规则（同VIP激活费）
+      distribution: {
+        nodeDividends: 3, // 3%
+        operations: 1, // 1%
+        marketMakers: 1, // 1%
+        autoBurn: 5, // 5%
+        levelRewards: 20, // 20%
+        directReferral: 50, // 50%
+        activatorReturn: 20, // 20%
+      },
+    },
+  });
+});
+
+// GET /api/v1/reinvestment/pending - Get pending reinvestment details
+app.get('/api/v1/reinvestment/pending', (req, res) => {
+  // Simulated pending reinvestment
+  const hasPending = false; // Set to true to simulate pending state
+  
+  if (!hasPending) {
+    return res.json({
+      success: true,
+      data: {
+        hasPending: false,
+        message: '暂无待处理的复投',
+      },
+    });
+  }
+  
+  const now = Date.now();
+  const triggerTime = now - 2 * 60 * 60 * 1000; // 2 hours ago
+  const deadline = triggerTime + 48 * 60 * 60 * 1000; // 48 hours from trigger
+  
+  res.json({
+    success: true,
+    data: {
+      hasPending: true,
+      reinvestment: {
+        id: 1,
+        cumulativeRewards: 215.50,
+        reinvestAmount: 100,
+        triggerTime,
+        deadline,
+        timeRemaining: deadline - now,
+        timeRemainingFormatted: '47:59:58',
+        status: 'pending',
+      },
+      distribution: {
+        nodeDividends: 3,
+        operations: 1,
+        marketMakers: 1,
+        autoBurn: 5,
+        levelRewards: 20,
+        directReferral: 50,
+        activatorReturn: 20,
+      },
+    },
+  });
+});
+
+// POST /api/v1/reinvestment/execute - Execute reinvestment
+app.post('/api/v1/reinvestment/execute', (req, res) => {
+  const { signature, referrer } = req.body;
+  
+  // In production, verify the signature and execute on-chain
+  
+  res.json({
+    success: true,
+    data: {
+      txHash: '0x' + Array(64).fill(0).map(() => Math.floor(Math.random() * 16).toString(16)).join(''),
+      reinvestAmount: 100,
+      distribution: {
+        nodeDividends: 3,
+        operations: 1,
+        marketMakers: 1,
+        autoBurn: 5,
+        levelRewards: 20,
+        directReferral: 50,
+        activatorReturn: 20,
+      },
+      message: '复投成功！您的推广权益已恢复。',
+    },
+  });
+});
+
+// POST /api/v1/reinvestment/defer - Defer reinvestment (稍后处理)
+app.post('/api/v1/reinvestment/defer', (req, res) => {
+  res.json({
+    success: true,
+    data: {
+      deferred: true,
+      message: '已稍后处理，请在48小时内完成复投。',
+      reminderEnabled: true,
+    },
+  });
+});
+
+// GET /api/v1/reinvestment/history - Get reinvestment history
+app.get('/api/v1/reinvestment/history', (req, res) => {
+  res.json({
+    success: true,
+    data: {
+      history: [
+        {
+          id: 1,
+          date: '2026-06-15',
+          amount: 100,
+          cumulativeRewards: 215.50,
+          status: 'completed',
+          txHash: '0x123...abc',
+        },
+        {
+          id: 2,
+          date: '2026-05-20',
+          amount: 100,
+          cumulativeRewards: 208.30,
+          status: 'completed',
+          txHash: '0x456...def',
+        },
+      ],
+      totalReinvestments: 2,
+      totalAmountReinvested: 200,
+    },
+  });
+});
+
 app.listen(port, () => {
   console.log(`Server listening at http://localhost:${port}/`);
 });
