@@ -199,7 +199,7 @@ app.get('/api/v1/node/overview', (req, res) => {
       // 节点获取规则
       burnNodePrice: 100000, // 销毁100000 TFT获得1个节点
       lpNodePrice: 50000, // 添加50000 TFT + 等值USDT获得1个节点
-      tftPrice: 1.00, // 当前TFT价格 (USDT)
+      tftPrice: 0.01, // 当前TFT价格 (USDT)
       lpUnlockPeriods: 50, // LP分50期解锁
       lpUnlockInterval: 30, // 每30天解锁一次
       lpUnlockPercentPerPeriod: 2, // 每次解锁2%
@@ -270,8 +270,8 @@ app.post('/api/v1/node/acquire', (req, res) => {
       });
     }
     const nodesAcquired = Math.floor(tftAmount / LP_NODE_PRICE);
-    // 假设TFT价格为1USDT（实际应从价格接口获取）
-    const tftPrice = 1;
+    // TFT价格 (USDT)
+    const tftPrice = 0.01;
     const usdtEquivalent = tftAmount * tftPrice;
     res.json({
       success: true,
