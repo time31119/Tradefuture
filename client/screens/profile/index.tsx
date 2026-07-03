@@ -145,6 +145,14 @@ export default function ProfileScreen() {
     router.push('/node');
   };
 
+  const handleNavigateToMarketMaker = () => {
+    router.push('/marketmaker');
+  };
+
+  const handleNavigateToTokenomics = () => {
+    router.push('/tokenomics');
+  };
+
   const handleShowTutorial = () => {
     setShowTutorial(true);
   };
@@ -386,6 +394,18 @@ export default function ProfileScreen() {
               <FontAwesome6 name="cubes" size={18} color={COLORS.primary} />
             </View>
             <Text style={styles.functionText}>我的节点</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.functionBtn} onPress={handleNavigateToMarketMaker}>
+            <View style={styles.functionIconContainer}>
+              <FontAwesome6 name="chart-line" size={18} color={COLORS.primary} />
+            </View>
+            <Text style={styles.functionText}>做市商</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.functionBtn} onPress={handleNavigateToTokenomics}>
+            <View style={styles.functionIconContainer}>
+              <FontAwesome6 name="coins" size={18} color={COLORS.primary} />
+            </View>
+            <Text style={styles.functionText}>代币经济</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.functionBtn} onPress={handleShowTutorial}>
             <View style={styles.functionIconContainer}>

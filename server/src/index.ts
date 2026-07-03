@@ -898,6 +898,68 @@ app.get('/api/v1/reinvestment/history', (req, res) => {
   });
 });
 
+// GET /api/v1/market-maker/status - Get market maker status
+app.get('/api/v1/market-maker/status', (req, res) => {
+  const { address } = req.query;
+  
+  // Simulated market maker status
+  res.json({
+    success: true,
+    data: {
+      isMarketMaker: false,
+      applicationStatus: 'none', // 'none' | 'pending' | 'approved' | 'rejected'
+      appliedAt: null,
+      reviewedAt: null,
+      rejectionReason: null,
+    },
+  });
+});
+
+// GET /api/v1/market-maker/qualification-progress - Get qualification progress
+app.get('/api/v1/market-maker/qualification-progress', (req, res) => {
+  const { address } = req.query;
+  
+  // Simulated qualification progress
+  res.json({
+    success: true,
+    data: {
+      method1: {
+        directReferrals: 3,
+        requiredReferrals: 10,
+        totalPrediction: 150,
+        requiredPrediction: 200,
+        teamPrediction: 450,
+        requiredTeamPrediction: 2000,
+        qualified: false,
+      },
+      method2: {
+        vipIncome: 125.50,
+        requiredVipIncome: 500,
+        qualified: false,
+      },
+    },
+  });
+});
+
+// POST /api/v1/market-maker/apply - Apply for market maker
+app.post('/api/v1/market-maker/apply', (req, res) => {
+  const { address } = req.body;
+  
+  if (!address) {
+    return res.status(400).json({ success: false, error: 'Address is required' });
+  }
+  
+  // Simulated application
+  res.json({
+    success: true,
+    data: {
+      message: '做市商申请已提交，请等待审核',
+      applicationStatus: 'pending',
+      appliedAt: new Date().toISOString(),
+    },
+  });
+});
+
 app.listen(port, () => {
   console.log(`Server listening at http://localhost:${port}/`);
 });
