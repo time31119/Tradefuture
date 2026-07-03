@@ -330,7 +330,7 @@ export default function HomeScreen() {
   }
 
   return (
-    <Screen backgroundColor={COLORS.background} statusBarStyle="light" safeAreaEdges={['left', 'right']}>
+    <Screen backgroundColor={COLORS.background} statusBarStyle="light">
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -898,6 +898,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 16,
     paddingTop: 8,
+    paddingBottom: 24,
   },
   // Header
   header: {
