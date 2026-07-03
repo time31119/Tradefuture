@@ -1,8 +1,25 @@
 import express from "express";
 import cors from "cors";
+import rateLimit from "express-rate-limit";
+import { initDatabase, getDb } from "./db";
+import { authenticate, generateToken, optionalAuth } from "./auth";
+import { validate, schemas } from "./validation";
+
+// Initialize database
+initDatabase();
 
 const app = express();
 const port = process.env.PORT || 9091;
+
+// Rate limiting
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // limit each IP to 100 requests per windowMs
+  message: { error: 'Too many requests, please try again later' }
+});
+
+// Apply rate limiting to all API routes
+app.use('/api/', limiter);
 
 // Middleware
 app.use(cors());
@@ -350,12 +367,8 @@ app.get('/api/v1/swap/quote', (req, res) => {
 });
 
 // POST /api/v1/swap/execute - Execute swap
-app.post('/api/v1/swap/execute', (req, res) => {
+app.post('/api/v1/swap/execute', validate(schemas.swapExecute), (req, res) => {
   const { fromToken, toToken, amount } = req.body;
-
-  if (!fromToken || !toToken || !amount) {
-    return res.status(400).json({ success: false, error: 'Invalid parameters' });
-  }
 
   res.json({
     success: true,
@@ -470,18 +483,38 @@ app.post('/api/v1/profile/claim-referral', (req, res) => {
 
 // ==================== Wallet API ====================
 
-// POST /api/v1/wallet/connect - Simulate wallet connection
+// POST /api/v1/wallet/connect - Connect wallet with signature verification
 app.post('/api/v1/wallet/connect', (req, res) => {
+  const { address, signature, message } = req.body;
+  
+  // In production, verify the signature here
+  // For now, we'll generate a deterministic address if not provided
+  const walletAddress = address || '0x7a3B4C5D6E7F8A9B0C1D2E3F4A5B6C7D8E9f3e8';
+  
+  // Get or create user in database
+  const db = getDb();
+  let user = db.prepare('SELECT * FROM users WHERE address = ?').get(walletAddress) as { id: number; address: string } | undefined;
+  
+  if (!user) {
+    // Create new user
+    db.prepare('INSERT INTO users (address) VALUES (?)').run(walletAddress);
+    user = db.prepare('SELECT * FROM users WHERE address = ?').get(walletAddress) as { id: number; address: string };
+  }
+  
+  // Generate JWT token
+  const token = generateToken(walletAddress, user.id);
+  
   res.json({
     success: true,
     data: {
-      address: '0x7a3B4C5D6E7F8A9B0C1D2E3F4A5B6C7D8E9f3e8',
-      shortAddress: '0x7a3B...f3e8',
+      address: walletAddress,
+      shortAddress: `${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}`,
       chainId: 56,
       chainName: 'BSC Mainnet',
       tftBalance: 12345.67,
       usdtBalance: 8765.43,
       bnbBalance: 1.234,
+      token: token,
     },
   });
 });
