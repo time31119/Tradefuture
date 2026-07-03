@@ -1,6 +1,9 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const EXPO_PUBLIC_BACKEND_BASE_URL = process.env.EXPO_PUBLIC_BACKEND_BASE_URL;
+
+const WALLET_STORAGE_KEY = '@tradefuture_wallet';
 
 interface WalletData {
   address: string;
@@ -17,7 +20,7 @@ interface WalletContextType {
   wallet: WalletData | null;
   isConnecting: boolean;
   connect: () => Promise<void>;
-  disconnect: () => void;
+  disconnect: () => Promise<void>;
 }
 
 const WalletContext = createContext<WalletContextType>({
@@ -27,7 +30,7 @@ const WalletContext = createContext<WalletContextType>({
   connect: async () => {
     // Default implementation - overridden by WalletProvider
   },
-  disconnect: () => {
+  disconnect: async () => {
     // Default implementation - overridden by WalletProvider
   },
 });
@@ -35,8 +38,11 @@ const WalletContext = createContext<WalletContextType>({
 export function WalletProvider({ children }: { children: React.ReactNode }) {
   const [wallet, setWallet] = useState<WalletData | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
 
   const connect = useCallback(async () => {
+    if (isConnecting) return;
+    
     setIsConnecting(true);
     try {
       /**
@@ -50,22 +56,45 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       const result = await response.json();
       if (result.success) {
         setWallet(result.data);
+        // Persist wallet data
+        await AsyncStorage.setItem(WALLET_STORAGE_KEY, JSON.stringify(result.data));
       }
     } catch (error) {
       console.error('Wallet connect error:', error);
     } finally {
       setIsConnecting(false);
     }
-  }, []);
+  }, [isConnecting]);
 
-  const disconnect = useCallback(() => {
+  const disconnect = useCallback(async () => {
     setWallet(null);
+    // Remove persisted wallet data
+    await AsyncStorage.removeItem(WALLET_STORAGE_KEY);
   }, []);
 
-  // Auto-connect on mount (simulate returning user)
+  // Load persisted wallet on mount
   useEffect(() => {
-    connect();
-  }, [connect]);
+    const loadWallet = async () => {
+      try {
+        const storedWallet = await AsyncStorage.getItem(WALLET_STORAGE_KEY);
+        if (storedWallet) {
+          setWallet(JSON.parse(storedWallet));
+        }
+      } catch (error) {
+        console.error('Load wallet error:', error);
+      } finally {
+        setIsInitialized(true);
+      }
+    };
+    loadWallet();
+  }, []);
+
+  // Auto-connect if no persisted wallet (first time user)
+  useEffect(() => {
+    if (isInitialized && !wallet) {
+      connect();
+    }
+  }, [isInitialized, wallet, connect]);
 
   return (
     <WalletContext.Provider

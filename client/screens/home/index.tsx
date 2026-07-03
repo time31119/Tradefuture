@@ -90,7 +90,7 @@ function OverviewCard({ label, value, icon, color, onPress, valueColor }: Overvi
 
 export default function HomeScreen() {
   const router = useSafeRouter();
-  const { isConnected, wallet, connect } = useWallet();
+  const { isConnected, wallet, isConnecting, connect } = useWallet();
   const [overview, setOverview] = useState<OverviewData | null>(null);
   const [btcPrice, setBtcPrice] = useState<BTCPrice | null>(null);
   const [klineData, setKlineData] = useState<KlineItem[]>([]);
@@ -363,8 +363,16 @@ export default function HomeScreen() {
                 <Text style={styles.walletText}>{wallet?.shortAddress}</Text>
               </TouchableOpacity>
             ) : (
-              <TouchableOpacity style={styles.connectBtn} onPress={connect}>
-                <Text style={styles.connectBtnText}>连接</Text>
+              <TouchableOpacity 
+                style={[styles.connectBtn, isConnecting && styles.connectBtnDisabled]} 
+                onPress={connect}
+                disabled={isConnecting}
+              >
+                {isConnecting ? (
+                  <ActivityIndicator size="small" color={COLORS.textPrimary} />
+                ) : (
+                  <Text style={styles.connectBtnText}>连接</Text>
+                )}
               </TouchableOpacity>
             )}
           </View>
@@ -960,6 +968,9 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: '#fff',
+  },
+  connectBtnDisabled: {
+    opacity: 0.6,
   },
   // Overview Grid
   overviewGrid: {
