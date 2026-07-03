@@ -423,7 +423,13 @@ export default function NodeScreen() {
                 <View style={styles.lpPriceBox}>
                   <View style={styles.lpPriceRow}>
                     <Text style={styles.lpPriceLabel}>当前TFT价格</Text>
-                    <Text style={styles.lpPriceValue}>1 TFT ≈ {(data?.tftPrice || 1).toFixed(2)} USDT</Text>
+                    <Text style={styles.lpPriceValue}>1 TFT ≈ {(data?.tftPrice || 0.001).toFixed(4)} USDT</Text>
+                  </View>
+                  <View style={styles.lpPriceRow}>
+                    <Text style={styles.lpPriceLabel}>示例</Text>
+                    <Text style={styles.lpPriceExample}>
+                      50,000 TFT + {Math.round(50000 * (data?.tftPrice || 0.001))} USDT = 1 节点
+                    </Text>
                   </View>
                 </View>
                 <View style={styles.inputRow}>
@@ -448,8 +454,16 @@ export default function NodeScreen() {
                 {parseFloat(tftAmount) >= 50000 && (
                   <View style={styles.lpDetailsBox}>
                     <View style={styles.lpDetailRow}>
+                      <Text style={styles.lpDetailLabel}>TFT数量</Text>
+                      <Text style={styles.lpDetailValue}>{parseFloat(tftAmount).toLocaleString()} TFT</Text>
+                    </View>
+                    <View style={styles.lpDetailRow}>
+                      <Text style={styles.lpDetailLabel}>USDT等值</Text>
+                      <Text style={styles.lpDetailValue}>{Math.round((parseFloat(tftAmount) || 0) * (data?.tftPrice || 0.001)).toLocaleString()} USDT</Text>
+                    </View>
+                    <View style={styles.lpDetailRow}>
                       <Text style={styles.lpDetailLabel}>获得节点</Text>
-                      <Text style={styles.lpDetailValue}>{Math.floor((parseFloat(tftAmount) || 0) / 50000)} 个</Text>
+                      <Text style={[styles.lpDetailValue, styles.lpDetailHighlight]}>{Math.floor((parseFloat(tftAmount) || 0) / 50000)} 个</Text>
                     </View>
                     <View style={styles.lpDetailRow}>
                       <Text style={styles.lpDetailLabel}>锁仓期限</Text>
