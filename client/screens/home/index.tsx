@@ -251,10 +251,10 @@ export default function HomeScreen() {
 
           <View style={styles.priceMeta}>
             <Text style={styles.priceMetaItem}>
-              H: ${btcPrice ? formatNumber(btcPrice.high24h) : '--'}
+              高: ${btcPrice ? formatNumber(btcPrice.high24h) : '--'}
             </Text>
             <Text style={styles.priceMetaItem}>
-              L: ${btcPrice ? formatNumber(btcPrice.low24h) : '--'}
+              低: ${btcPrice ? formatNumber(btcPrice.low24h) : '--'}
             </Text>
           </View>
 
@@ -326,7 +326,7 @@ export default function HomeScreen() {
                     )}
                     {item.status === 'won' && (
                       <TouchableOpacity style={styles.claimBtn}>
-                        <Text style={styles.claimBtnText}>Claim</Text>
+                        <Text style={styles.claimBtnText}>领取</Text>
                       </TouchableOpacity>
                     )}
                   </View>
