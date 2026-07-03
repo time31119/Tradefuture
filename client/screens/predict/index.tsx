@@ -281,40 +281,69 @@ export default function PredictScreen() {
         {btcPrice && (
           <View style={styles.priceCard}>
             <View style={styles.priceHeader}>
-              <Text style={styles.priceLabel}>BTC/USD</Text>
-              <Text style={[
+              <View>
+                <Text style={styles.priceLabel}>BTC/USD</Text>
+                <Text style={styles.priceValue}>${formatPrice(btcPrice.price)}</Text>
+              </View>
+              <View style={[
                 styles.changeBadge,
                 { backgroundColor: btcPrice.change24h >= 0 ? 'rgba(0,200,151,0.15)' : 'rgba(255,107,107,0.15)' }
               ]}>
-                {btcPrice.change24h >= 0 ? '+' : ''}{btcPrice.change24h.toFixed(2)}%
-              </Text>
+                <FontAwesome6
+                  name={btcPrice.change24h >= 0 ? 'arrow-up' : 'arrow-down'}
+                  size={12}
+                  color={btcPrice.change24h >= 0 ? COLORS.success : COLORS.danger}
+                />
+                <Text style={[
+                  styles.changeText,
+                  { color: btcPrice.change24h >= 0 ? COLORS.success : COLORS.danger }
+                ]}>
+                  {btcPrice.change24h >= 0 ? '+' : ''}{btcPrice.change24h.toFixed(2)}%
+                </Text>
+              </View>
             </View>
-            <Text style={styles.priceValue}>${formatPrice(btcPrice.price)}</Text>
             <View style={styles.priceRange}>
-              <Text style={styles.rangeText}>高: ${formatPrice(btcPrice.high24h)}</Text>
-              <Text style={styles.rangeText}>低: ${formatPrice(btcPrice.low24h)}</Text>
+              <View style={styles.rangeItem}>
+                <Text style={styles.rangeLabel}>24h最高</Text>
+                <Text style={styles.rangeValue}>${formatPrice(btcPrice.high24h)}</Text>
+              </View>
+              <View style={styles.rangeDivider} />
+              <View style={styles.rangeItem}>
+                <Text style={styles.rangeLabel}>24h最低</Text>
+                <Text style={styles.rangeValue}>${formatPrice(btcPrice.low24h)}</Text>
+              </View>
             </View>
-            {/* Price Chart - Simple Bar Visualization */}
+            {/* K-Line Chart - Real-time Animation */}
             {chartData.length > 0 && (
               <View style={styles.chartContainer}>
-                <View style={styles.miniChart}>
-                  {chartData.slice(-15).map((item, index) => {
-                    const maxVal = Math.max(...chartData.slice(-15).map(d => d.value));
-                    const minVal = Math.min(...chartData.slice(-15).map(d => d.value));
+                <View style={styles.klineChart}>
+                  {chartData.slice(-20).map((item, index) => {
+                    const allData = chartData.slice(-20);
+                    const maxVal = Math.max(...allData.map(d => d.value));
+                    const minVal = Math.min(...allData.map(d => d.value));
                     const range = maxVal - minVal || 1;
-                    const height = ((item.value - minVal) / range) * 60 + 20;
-                    const isUp = index > 0 ? item.value >= chartData.slice(-15)[index - 1].value : true;
+                    const height = ((item.value - minVal) / range) * 70 + 15;
+                    const prevValue = index > 0 ? allData[index - 1].value : item.value;
+                    const isUp = item.value >= prevValue;
+                    const isLast = index === allData.length - 1;
                     return (
-                      <View
-                        key={index}
-                        style={[
-                          styles.miniChartBar,
+                      <View key={index} style={styles.klineItem}>
+                        <View style={[
+                          styles.klineBar,
                           {
                             height,
-                            backgroundColor: isUp ? 'rgba(0,200,151,0.6)' : 'rgba(255,107,107,0.6)',
+                            backgroundColor: isUp ? 'rgba(0,200,151,0.8)' : 'rgba(255,107,107,0.8)',
+                            opacity: isLast ? 1 : 0.7,
                           }
-                        ]}
-                      />
+                        ]}>
+                          {isLast && (
+                            <View style={[
+                              styles.klinePulse,
+                              { backgroundColor: isUp ? COLORS.success : COLORS.danger }
+                            ]} />
+                          )}
+                        </View>
+                      </View>
                     );
                   })}
                 </View>
@@ -689,50 +718,93 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 12,
   },
   priceLabel: {
     fontSize: 13,
     color: COLORS.textSecondary,
     fontWeight: '600',
-  },
-  changeBadge: {
-    fontSize: 12,
-    fontWeight: '700',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-    fontFamily: 'monospace',
+    marginBottom: 4,
   },
   priceValue: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: '800',
     color: COLORS.textPrimary,
     fontFamily: 'monospace',
-    marginBottom: 8,
+  },
+  changeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    gap: 4,
+  },
+  changeText: {
+    fontSize: 13,
+    fontWeight: '700',
+    fontFamily: 'monospace',
   },
   priceRange: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'space-around',
     marginBottom: 12,
+    paddingVertical: 8,
+    backgroundColor: 'rgba(255,255,255,0.02)',
+    borderRadius: 8,
   },
-  rangeText: {
+  rangeItem: {
+    alignItems: 'center',
+  },
+  rangeLabel: {
     fontSize: 11,
     color: COLORS.textSecondary,
+    marginBottom: 4,
+  },
+  rangeValue: {
+    fontSize: 13,
+    color: COLORS.textPrimary,
+    fontWeight: '600',
     fontFamily: 'monospace',
+  },
+  rangeDivider: {
+    width: 1,
+    backgroundColor: COLORS.border,
+    marginVertical: 4,
   },
   chartContainer: {
     marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
   },
-  miniChart: {
+  klineChart: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    height: 60,
-    gap: 2,
+    height: 85,
+    gap: 3,
+    paddingHorizontal: 4,
   },
-  miniChartBar: {
-    width: 8,
+  klineItem: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+  },
+  klineBar: {
+    width: '100%',
+    maxWidth: 12,
     borderRadius: 2,
+    position: 'relative',
+  },
+  klinePulse: {
+    position: 'absolute',
+    top: -2,
+    left: '50%',
+    marginLeft: -3,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    opacity: 0.8,
   },
   // Betting Panel
   betPanel: {
