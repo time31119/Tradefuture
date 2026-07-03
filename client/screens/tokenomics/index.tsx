@@ -516,6 +516,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 24,
+    position: 'relative',
   },
   backButton: {
     width: 40,
@@ -524,7 +525,9 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surface,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    position: 'absolute',
+    left: 0,
+    zIndex: 1,
   },
   headerContent: {
     flex: 1,

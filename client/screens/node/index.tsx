@@ -881,7 +881,7 @@ const styles = StyleSheet.create({
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.background },
   scrollView: { flex: 1 },
   scrollContent: { paddingTop: 56, paddingBottom: 120, paddingHorizontal: 16 },
-  header: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
+  header: { flexDirection: 'row', alignItems: 'center', marginBottom: 20, position: 'relative' },
   backButton: {
     width: 40,
     height: 40,
@@ -889,9 +889,11 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surface,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    position: 'absolute',
+    left: 0,
+    zIndex: 1,
   },
-  headerContent: { flex: 1 },
+  headerContent: { flex: 1, alignItems: 'center' },
   title: { fontSize: 24, fontWeight: '700', color: COLORS.textPrimary, letterSpacing: 0.5 },
   subtitle: { fontSize: 13, color: COLORS.textSecondary, marginTop: 4 },
 
