@@ -944,6 +944,7 @@ const styles = StyleSheet.create({
   lpPriceRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   lpPriceLabel: { fontSize: 12, color: COLORS.textSecondary },
   lpPriceValue: { fontSize: 14, color: COLORS.success, fontWeight: '600' },
+  lpPriceExample: { fontSize: 12, color: COLORS.textPrimary },
   // LP Details Box
   lpDetailsBox: {
     backgroundColor: COLORS.surface,
