@@ -335,7 +335,7 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.background },
   scrollView: { flex: 1 },
-  scrollContent: { paddingTop: 56, paddingBottom: 100, paddingHorizontal: 16 },
+  scrollContent: { paddingTop: 56, paddingBottom: 120, paddingHorizontal: 16 },
   // User Card
   userCard: {
     backgroundColor: COLORS.surface,

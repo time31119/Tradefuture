@@ -640,7 +640,7 @@ const styles = StyleSheet.create({
   scrollView: { flex: 1 },
   scrollContent: {
     paddingTop: 56,
-    paddingBottom: 100,
+    paddingBottom: 120,
     paddingHorizontal: 16,
   },
   // Title Bar
