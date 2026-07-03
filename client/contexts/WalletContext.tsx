@@ -1,6 +1,5 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
-import { useAccount, useConnect, useDisconnect, useChainId, useBalance } from 'wagmi';
-import { formatUnits } from 'viem';
+import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getChainInfo } from '@/utils/wagmiConfig';
 
 const EXPO_PUBLIC_BACKEND_BASE_URL = process.env.EXPO_PUBLIC_BACKEND_BASE_URL || 'http://localhost:9091';
@@ -33,106 +32,82 @@ const shortenAddress = (address: string): string => {
 };
 
 export function WalletProvider({ children }: { children: ReactNode }) {
-  const { address, isConnected: wagmiConnected, chainId } = useAccount();
-  const { connect, connectors, isPending } = useConnect();
-  const { disconnect: wagmiDisconnect } = useDisconnect();
-  const currentChainId = useChainId();
-  
   const [wallet, setWallet] = useState<WalletData | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
-
-  // 获取余额
-  const { data: nativeBalance } = useBalance({
-    address: address as `0x${string}`,
-  });
 
   // 连接后端
   const connectToBackend = useCallback(async (walletAddress: string) => {
     try {
-      const response = await fetch(`${EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/wallet/connect`, {
+      const response = await fetch(`${EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/users/connect`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ address: walletAddress }),
+        body: JSON.stringify({ walletAddress }),
       });
       
       if (response.ok) {
         const data = await response.json();
-        setWallet(prev => prev ? {
-          ...prev,
-          tftBalance: data.data?.tftBalance || '0',
-          usdtBalance: data.data?.usdtBalance || '0',
-        } : null);
+        if (data.token) {
+          await AsyncStorage.setItem('auth_token', data.token);
+        }
       }
     } catch (error) {
       console.error('Failed to connect to backend:', error);
     }
   }, []);
 
-  // 当wagmi连接状态变化时更新wallet
-  useEffect(() => {
-    if (wagmiConnected && address) {
-      const chainInfo = getChainInfo(chainId || 1);
-      const formattedNativeBalance = nativeBalance 
-        ? formatUnits(nativeBalance.value, nativeBalance.decimals)
-        : '0';
+  // 连接钱包 - 临时使用模拟地址
+  const handleConnect = useCallback(async () => {
+    setIsConnecting(true);
+    try {
+      // 模拟钱包连接（临时方案）
+      const mockAddress = '0x1234567890123456789012345678901234567890';
+      const chainId = 56; // BSC
+      const chainInfo = getChainInfo(chainId);
       
-      setWallet({
-        address,
-        shortAddress: shortenAddress(address),
-        chainId: chainId || 1,
+      const walletData: WalletData = {
+        address: mockAddress,
+        shortAddress: shortenAddress(mockAddress),
+        chainId,
         chainName: chainInfo?.name || 'Unknown',
-        tftBalance: '0',
-        usdtBalance: '0',
-        nativeBalance: formattedNativeBalance,
-      });
+        tftBalance: '0.00',
+        usdtBalance: '0.00',
+        nativeBalance: '0.00',
+      };
       
-      // 连接后端
-      connectToBackend(address);
-    } else {
-      setWallet(null);
+      setWallet(walletData);
+      await connectToBackend(mockAddress);
+    } catch (error) {
+      console.error('Failed to connect wallet:', error);
+    } finally {
+      setIsConnecting(false);
     }
-  }, [wagmiConnected, address, chainId, nativeBalance, connectToBackend]);
+  }, [connectToBackend]);
+
+  // 断开连接
+  const handleDisconnect = useCallback(async () => {
+    setWallet(null);
+    await AsyncStorage.removeItem('auth_token');
+  }, []);
 
   // 刷新余额
   const refreshBalances = useCallback(async () => {
-    if (!address) return;
-    
-    try {
-      const response = await fetch(`${EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/wallet/balances?address=${address}`);
-      if (response.ok) {
-        const data = await response.json();
-        setWallet(prev => prev ? {
-          ...prev,
-          tftBalance: data.data?.tftBalance || prev.tftBalance,
-          usdtBalance: data.data?.usdtBalance || prev.usdtBalance,
-        } : null);
-      }
-    } catch (error) {
-      console.error('Failed to refresh balances:', error);
+    // 临时返回模拟余额
+    if (wallet) {
+      setWallet({
+        ...wallet,
+        tftBalance: '0.00',
+        usdtBalance: '0.00',
+        nativeBalance: '0.00',
+      });
     }
-  }, [address]);
-
-  // 连接钱包
-  const handleConnect = useCallback(() => {
-    const injectedConnector = connectors.find(c => c.id === 'injected');
-    if (injectedConnector) {
-      setIsConnecting(true);
-      connect({ connector: injectedConnector });
-    }
-  }, [connectors, connect]);
-
-  // 断开连接
-  const handleDisconnect = useCallback(() => {
-    wagmiDisconnect();
-    setWallet(null);
-  }, [wagmiDisconnect]);
+  }, [wallet]);
 
   return (
     <WalletContext.Provider
       value={{
         wallet,
-        isConnected: wagmiConnected,
-        isConnecting: isConnecting || isPending,
+        isConnected: !!wallet,
+        isConnecting,
         connect: handleConnect,
         disconnect: handleDisconnect,
         refreshBalances,
@@ -145,8 +120,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
 export function useWallet() {
   const context = useContext(WalletContext);
-  if (!context) {
-    throw new Error('useWallet must be used within WalletProvider');
+  if (context === undefined) {
+    throw new Error('useWallet must be used within a WalletProvider');
   }
   return context;
 }

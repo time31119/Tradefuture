@@ -1,18 +1,7 @@
-import { http, createConfig } from 'wagmi';
-import { mainnet, bsc } from 'wagmi/chains';
-import { injected } from 'wagmi/connectors';
+// Wagmi配置 - 临时禁用，解决Metro bundler的import.meta问题
+// TODO: 待Metro配置修复后恢复
 
-// Wagmi配置 - 简化版，避免RainbowKit的accounts依赖问题
-export const wagmiConfig = createConfig({
-  chains: [mainnet, bsc],
-  connectors: [
-    injected(),
-  ],
-  transports: {
-    [mainnet.id]: http(),
-    [bsc.id]: http(),
-  },
-});
+export const wagmiConfig = null;
 
 // 支持的链列表
 export const supportedChains = [
