@@ -261,21 +261,24 @@ app.post('/api/v1/node/acquire', (req, res) => {
       },
     });
   } else if (method === 'lp') {
-    // 添加LP获取节点
+    // 添加LP获取节点：50000 TFT + 等值USDT
     if (tftAmount < LP_NODE_PRICE) {
       return res.status(400).json({ 
         success: false, 
-        error: `添加数量不足，至少需要 ${LP_NODE_PRICE} TFT + ${LP_NODE_PRICE} USDT等值LP` 
+        error: `添加数量不足，至少需要 ${LP_NODE_PRICE} TFT + 等值USDT` 
       });
     }
     const nodesAcquired = Math.floor(tftAmount / LP_NODE_PRICE);
+    // 假设TFT价格为1USDT（实际应从价格接口获取）
+    const tftPrice = 1;
+    const usdtEquivalent = tftAmount * tftPrice;
     res.json({
       success: true,
       data: {
         nodesAcquired,
         method: 'lp',
         tftAmount,
-        usdtEquivalent: tftAmount, // 等值USDT
+        usdtEquivalent, // 等值USDT = TFT数量 * TFT价格
         lpLocked: tftAmount * 2, // LP总量 = TFT + USDT
         unlockPeriods: 50,
         unlockInterval: 30, // 天

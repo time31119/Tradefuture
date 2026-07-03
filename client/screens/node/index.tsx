@@ -393,12 +393,12 @@ export default function NodeScreen() {
               <>
                 <View style={styles.acquireDescRow}>
                   <FontAwesome6 name="droplet" size={14} color={COLORS.success} />
-                  <Text style={styles.acquireDesc}>添加 50,000 TFT + 50,000 USDT等值LP 获得 1 个节点</Text>
+                  <Text style={styles.acquireDesc}>添加 50,000 TFT + 等值USDT 获得 1 个节点</Text>
                 </View>
                 <View style={styles.ruleBox}>
                   <FontAwesome6 name="circle-info" size={12} color={COLORS.primary} />
                   <Text style={styles.ruleText}>
-                    流动性凭证会锁仓，分50期解锁，每30天解锁2%。同一账户只能参与一次。
+                    添加50000 TFT及对应等值USDT的流动性，获得1个节点。流动性凭证会锁仓，分50期解锁，每30天解锁2%。同一账户只能参与一次。
                   </Text>
                 </View>
                 <View style={styles.inputRow}>
@@ -414,7 +414,7 @@ export default function NodeScreen() {
                 </View>
                 <View style={styles.lpEquivalent}>
                   <FontAwesome6 name="arrow-right" size={10} color={COLORS.textSecondary} />
-                  <Text style={styles.lpEquivText}>≈ {Math.floor(parseFloat(tftAmount) || 0).toLocaleString()} USDT (等值)</Text>
+                  <Text style={styles.lpEquivText}>+ {Math.floor(parseFloat(tftAmount) || 0).toLocaleString()} USDT (TFT等值)</Text>
                 </View>
                 <View style={styles.quickAmounts}>
                   {[50000, 100000, 250000, 500000].map((amount) => (
