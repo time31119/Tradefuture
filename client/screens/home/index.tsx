@@ -135,7 +135,7 @@ export default function HomeScreen() {
 
   const fetchKline = useCallback(async () => {
     try {
-      const res = await fetch(`${EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/btc/kline?count=20`);
+      const res = await fetch(`${EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/btc/kline?count=15`);
       const data = await res.json();
       if (data.success) setKlineData(data.data);
     } catch (error) {
@@ -786,12 +786,15 @@ interface MiniChartProps {
 
 function MiniChart({ data }: MiniChartProps) {
   const chartWidth = width - 48;
-  const chartHeight = 100;
-  const barWidth = (chartWidth - 20) / data.length;
+  const chartHeight = 120;
+  const barWidth = chartWidth / data.length;
+  const bodyWidth = Math.max(barWidth * 0.6, 4);
 
   const maxPrice = Math.max(...data.map(d => d.high));
   const minPrice = Math.min(...data.map(d => d.low));
   const priceRange = maxPrice - minPrice || 1;
+  const padding = 8;
+  const usableHeight = chartHeight - padding * 2;
 
   return (
     <View style={miniChartStyles.container}>
@@ -800,54 +803,49 @@ function MiniChart({ data }: MiniChartProps) {
           const isUp = item.close >= item.open;
           const color = isUp ? COLORS.success : COLORS.danger;
 
-          const highY = ((maxPrice - item.high) / priceRange) * (chartHeight - 10);
-          const lowY = ((maxPrice - item.low) / priceRange) * (chartHeight - 10);
-          const openY = ((maxPrice - item.open) / priceRange) * (chartHeight - 10);
-          const closeY = ((maxPrice - item.close) / priceRange) * (chartHeight - 10);
+          const highY = padding + ((maxPrice - item.high) / priceRange) * usableHeight;
+          const lowY = padding + ((maxPrice - item.low) / priceRange) * usableHeight;
+          const openY = padding + ((maxPrice - item.open) / priceRange) * usableHeight;
+          const closeY = padding + ((maxPrice - item.close) / priceRange) * usableHeight;
 
           const bodyTop = Math.min(openY, closeY);
           const bodyHeight = Math.max(Math.abs(closeY - openY), 2);
+          const centerX = index * barWidth + barWidth / 2;
 
           return (
             <View
               key={index}
               style={[
                 miniChartStyles.candle,
-                { left: index * barWidth + 2, width: barWidth - 2 }
+                { left: centerX - bodyWidth / 2, width: bodyWidth }
               ]}
             >
-              {/* Wick */}
-              <View style={[
-                miniChartStyles.wick,
-                {
-                  position: 'absolute',
-                  left: (barWidth - 4) / 2,
-                  top: highY,
-                  height: lowY - highY,
-                  width: 1.5,
-                  backgroundColor: color,
-                }
-              ]} />
-              {/* Body */}
-              <View style={[
-                miniChartStyles.body,
-                {
-                  position: 'absolute',
-                  left: (barWidth - 6) / 2,
-                  top: bodyTop,
-                  height: bodyHeight,
-                  width: 6,
-                  backgroundColor: color,
-                  borderRadius: 1,
-                }
-              ]} />
+              {/* Wick (high-low line) */}
+              <View style={{
+                position: 'absolute',
+                left: (bodyWidth - 1.5) / 2,
+                top: highY,
+                height: lowY - highY,
+                width: 1.5,
+                backgroundColor: color,
+              }} />
+              {/* Body (open-close rectangle) */}
+              <View style={{
+                position: 'absolute',
+                left: 0,
+                top: bodyTop,
+                height: bodyHeight,
+                width: bodyWidth,
+                backgroundColor: color,
+                borderRadius: 1,
+              }} />
             </View>
           );
         })}
       </View>
       {/* Time labels */}
       <View style={[miniChartStyles.timeLabels, { width: chartWidth }]}>
-        {data.filter((_, i) => i % 5 === 0).map((item, i) => (
+        {data.filter((_, i) => i % 3 === 0).map((item, i) => (
           <Text key={i} style={miniChartStyles.timeLabel}>
             {new Date(item.timestamp).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}
           </Text>
