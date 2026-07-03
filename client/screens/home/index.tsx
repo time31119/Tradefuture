@@ -112,6 +112,9 @@ export default function HomeScreen() {
 
   // BTC price auto-refresh interval
   const priceIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [countdown, setCountdown] = useState(30);
+  const [priceFlash, setPriceFlash] = useState(false);
+  const [prevPrice, setPrevPrice] = useState<number | null>(null);
 
   const fetchOverview = useCallback(async () => {
     try {
@@ -127,11 +130,21 @@ export default function HomeScreen() {
     try {
       const res = await fetch(`${EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/btc/price`);
       const data = await res.json();
-      if (data.success) setBtcPrice(data.data);
+      if (data.success) {
+        const newPrice = data.data.price;
+        // Flash animation when price changes
+        if (prevPrice !== null && newPrice !== prevPrice) {
+          setPriceFlash(true);
+          setTimeout(() => setPriceFlash(false), 500);
+        }
+        setPrevPrice(newPrice);
+        setBtcPrice(data.data);
+        setCountdown(30); // Reset countdown
+      }
     } catch (error) {
       console.error('Fetch price error:', error);
     }
-  }, []);
+  }, [prevPrice]);
 
   const fetchKline = useCallback(async () => {
     try {
@@ -165,18 +178,26 @@ export default function HomeScreen() {
     }, [fetchData])
   );
 
-  // Auto-refresh BTC price every 30 seconds
+  // Auto-refresh BTC price every 30 seconds with countdown
   useEffect(() => {
+    // Countdown timer
+    const countdownInterval = setInterval(() => {
+      setCountdown((prev) => (prev > 0 ? prev - 1 : 30));
+    }, 1000);
+
+    // Price refresh interval
     priceIntervalRef.current = setInterval(() => {
       fetchPrice();
+      fetchKline(); // Also refresh kline data
     }, 30000);
 
     return () => {
+      clearInterval(countdownInterval);
       if (priceIntervalRef.current) {
         clearInterval(priceIntervalRef.current);
       }
     };
-  }, [fetchPrice]);
+  }, [fetchPrice, fetchKline]);
 
   // Pull to refresh
   const onRefresh = useCallback(async () => {
@@ -489,15 +510,23 @@ export default function HomeScreen() {
         {/* BTC Price + Chart */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>BTC/USDT</Text>
-            <View style={styles.liveIndicator}>
-              <View style={styles.liveDot} />
-              <Text style={styles.liveText}>实时</Text>
+            <View style={styles.sectionTitleRow}>
+              <Text style={styles.sectionTitle}>BTC/USDT</Text>
+              <View style={styles.liveIndicator}>
+                <View style={styles.liveDot} />
+                <Text style={styles.liveText}>实时</Text>
+              </View>
+            </View>
+            <View style={styles.countdownBox}>
+              <Text style={styles.countdownText}>{countdown}s</Text>
             </View>
           </View>
           <View style={styles.priceCard}>
             <View style={styles.priceHeader}>
-              <Text style={styles.priceValue}>
+              <Text style={[
+                styles.priceValue,
+                priceFlash && styles.priceFlash
+              ]}>
                 ${btcPrice ? formatNumber(btcPrice.price) : '--'}
               </Text>
               <View style={[
@@ -1037,10 +1066,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 10,
   },
+  sectionTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   sectionTitle: {
     fontSize: 15,
     fontWeight: '700',
     color: COLORS.textPrimary,
+  },
+  countdownBox: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    backgroundColor: COLORS.surface,
+    borderRadius: 8,
+  },
+  countdownText: {
+    fontSize: 11,
+    color: COLORS.textSecondary,
+    fontWeight: '600',
   },
   liveIndicator: {
     flexDirection: 'row',
@@ -1057,6 +1102,9 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: COLORS.success,
     fontWeight: '600',
+  },
+  priceFlash: {
+    color: COLORS.primary,
   },
   // Quick Actions - New Design
   quickActionsGrid: {
