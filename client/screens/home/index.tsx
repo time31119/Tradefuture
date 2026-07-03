@@ -113,8 +113,6 @@ export default function HomeScreen() {
   // BTC price auto-refresh interval
   const priceIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [countdown, setCountdown] = useState(30);
-  const [priceFlash, setPriceFlash] = useState(false);
-  const [prevPrice, setPrevPrice] = useState<number | null>(null);
 
   const fetchOverview = useCallback(async () => {
     try {
@@ -131,20 +129,13 @@ export default function HomeScreen() {
       const res = await fetch(`${EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/btc/price`);
       const data = await res.json();
       if (data.success) {
-        const newPrice = data.data.price;
-        // Flash animation when price changes
-        if (prevPrice !== null && newPrice !== prevPrice) {
-          setPriceFlash(true);
-          setTimeout(() => setPriceFlash(false), 500);
-        }
-        setPrevPrice(newPrice);
         setBtcPrice(data.data);
         setCountdown(30); // Reset countdown
       }
     } catch (error) {
       console.error('Fetch price error:', error);
     }
-  }, [prevPrice]);
+  }, []);
 
   const fetchKline = useCallback(async () => {
     try {
@@ -523,10 +514,7 @@ export default function HomeScreen() {
           </View>
           <View style={styles.priceCard}>
             <View style={styles.priceHeader}>
-              <Text style={[
-                styles.priceValue,
-                priceFlash && styles.priceFlash
-              ]}>
+              <Text style={styles.priceValue}>
                 ${btcPrice ? formatNumber(btcPrice.price) : '--'}
               </Text>
               <View style={[
@@ -1102,9 +1090,6 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: COLORS.success,
     fontWeight: '600',
-  },
-  priceFlash: {
-    color: COLORS.primary,
   },
   // Quick Actions - New Design
   quickActionsGrid: {
