@@ -10,12 +10,14 @@ import {
   Modal,
   Share,
   Platform,
+  Linking,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { Screen } from '@/components/Screen';
 import { useWallet } from '@/contexts/WalletContext';
 import { useFocusEffect } from 'expo-router';
+import { useSafeRouter } from '@/hooks/useSafeRouter';
 import { COLORS } from '@/utils/theme';
 
 const EXPO_PUBLIC_BACKEND_BASE_URL = process.env.EXPO_PUBLIC_BACKEND_BASE_URL || 'http://localhost:9091';
@@ -44,10 +46,14 @@ interface ProfileData {
 
 export default function ProfileScreen() {
   const { isConnected, wallet, connect, disconnect } = useWallet();
+  const router = useSafeRouter();
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
   const [claiming, setClaiming] = useState(false);
   const [showPoster, setShowPoster] = useState(false);
+  const [showTutorial, setShowTutorial] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [showTeamModal, setShowTeamModal] = useState(false);
 
   const fetchProfile = useCallback(async () => {
     try {
@@ -135,6 +141,43 @@ export default function ProfileScreen() {
     }
   };
 
+  const handleNavigateToNode = () => {
+    router.push('/node');
+  };
+
+  const handleShowTutorial = () => {
+    setShowTutorial(true);
+  };
+
+  const handleShowSettings = () => {
+    setShowSettings(true);
+  };
+
+  const handleShowTeamModal = () => {
+    setShowTeamModal(true);
+  };
+
+  const handleActivateVIP = async () => {
+    try {
+      const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/profile/activate-vip`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      const data = await response.json();
+      if (data.success) {
+        Alert.alert('成功', 'VIP已激活！');
+        fetchProfile();
+      }
+    } catch (error) {
+      console.error('Activate VIP error:', error);
+    }
+  };
+
+  const handleContactSupport = () => {
+    // Open support link or show contact info
+    Alert.alert('联系客服', '客服微信: TradeFuture_Support\n客服邮箱: support@tradefuture.app');
+  };
+
   if (loading) {
     return (
       <Screen backgroundColor={COLORS.background} statusBarStyle="light">
@@ -213,7 +256,7 @@ export default function ProfileScreen() {
               <Text style={styles.vipExpiry}>
                 到期时间: {profile.vipExpiry}
               </Text>
-              <TouchableOpacity style={styles.renewBtn}>
+              <TouchableOpacity style={styles.renewBtn} onPress={handleActivateVIP}>
                 <Text style={styles.renewBtnText}>续费VIP · $100 USDT</Text>
               </TouchableOpacity>
             </View>
@@ -233,7 +276,7 @@ export default function ProfileScreen() {
                   <Text style={styles.vipBenefitText}>专属客服通道</Text>
                 </View>
               </View>
-              <TouchableOpacity style={styles.activateBtn}>
+              <TouchableOpacity style={styles.activateBtn} onPress={handleActivateVIP}>
                 <LinearGradient
                   colors={COLORS.GRADIENT_PRIMARY}
                   start={{ x: 0, y: 0 }}
@@ -303,7 +346,7 @@ export default function ProfileScreen() {
             </View>
           ))}
           {profile && profile.teamMembers.length > 5 && (
-            <TouchableOpacity style={styles.viewAllBtn}>
+            <TouchableOpacity style={styles.viewAllBtn} onPress={handleShowTeamModal}>
               <Text style={styles.viewAllText}>查看全部成员 →</Text>
             </TouchableOpacity>
           )}
@@ -338,19 +381,19 @@ export default function ProfileScreen() {
 
         {/* Function Entries */}
         <View style={styles.functionGrid}>
-          <TouchableOpacity style={styles.functionBtn}>
+          <TouchableOpacity style={styles.functionBtn} onPress={handleNavigateToNode}>
             <View style={styles.functionIconContainer}>
               <FontAwesome6 name="cubes" size={18} color={COLORS.primary} />
             </View>
             <Text style={styles.functionText}>我的节点</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.functionBtn}>
+          <TouchableOpacity style={styles.functionBtn} onPress={handleShowTutorial}>
             <View style={styles.functionIconContainer}>
               <FontAwesome6 name="book" size={18} color={COLORS.primary} />
             </View>
             <Text style={styles.functionText}>使用教程</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.functionBtn}>
+          <TouchableOpacity style={styles.functionBtn} onPress={handleShowSettings}>
             <View style={styles.functionIconContainer}>
               <FontAwesome6 name="gear" size={18} color={COLORS.primary} />
             </View>
