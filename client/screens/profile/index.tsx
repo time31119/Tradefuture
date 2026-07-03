@@ -7,6 +7,9 @@ import {
   StyleSheet,
   Alert,
   ActivityIndicator,
+  Modal,
+  Share,
+  Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { FontAwesome6 } from '@expo/vector-icons';
@@ -44,6 +47,7 @@ export default function ProfileScreen() {
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
   const [claiming, setClaiming] = useState(false);
+  const [showPoster, setShowPoster] = useState(false);
 
   const fetchProfile = useCallback(async () => {
     try {
@@ -93,9 +97,42 @@ export default function ProfileScreen() {
     }
   };
 
-  const handleCopyInvite = () => {
+  const handleCopyInvite = async () => {
     if (!profile) return;
-    Alert.alert('已复制', `邀请链接已复制: ${profile.inviteCode}`);
+    const inviteLink = `https://tradefuture.app?ref=${profile.inviteCode}`;
+    try {
+      if (Platform.OS === 'web') {
+        // Web: use clipboard API
+        await navigator.clipboard.writeText(inviteLink);
+        Alert.alert('复制成功', `邀请链接已复制到剪贴板\n${inviteLink}`);
+      } else {
+        // Mobile: use Share API
+        await Share.share({
+          message: `加入 TradeFuture，一起预测BTC价格赢取奖励！\n\n使用我的邀请码: ${profile.inviteCode}\n${inviteLink}`,
+          title: 'TradeFuture 邀请',
+        });
+      }
+    } catch (error) {
+      // Fallback: show the link for manual copy
+      Alert.alert('邀请链接', inviteLink);
+    }
+  };
+
+  const handleInvitePoster = () => {
+    setShowPoster(true);
+  };
+
+  const handleSharePoster = async () => {
+    if (!profile) return;
+    const inviteLink = `https://tradefuture.app?ref=${profile.inviteCode}`;
+    try {
+      await Share.share({
+        message: `加入 TradeFuture，一起预测BTC价格赢取奖励！\n\n使用我的邀请码: ${profile.inviteCode}\n${inviteLink}`,
+        title: 'TradeFuture 邀请',
+      });
+    } catch (error) {
+      console.error('Share error:', error);
+    }
   };
 
   if (loading) {
@@ -228,7 +265,7 @@ export default function ProfileScreen() {
               <FontAwesome6 name="copy" size={12} color={COLORS.primary} />
               <Text style={styles.inviteActionText}>复制链接</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.inviteActionBtn}>
+            <TouchableOpacity style={styles.inviteActionBtn} onPress={handleInvitePoster}>
               <FontAwesome6 name="image" size={12} color={COLORS.primary} />
               <Text style={styles.inviteActionText}>邀请海报</Text>
             </TouchableOpacity>
@@ -328,6 +365,46 @@ export default function ProfileScreen() {
           </TouchableOpacity>
         )}
       </ScrollView>
+
+      {/* Invite Poster Modal */}
+      <Modal visible={showPoster} transparent animationType="slide" onRequestClose={() => setShowPoster(false)}>
+        <View style={styles.posterOverlay}>
+          <View style={styles.posterModal}>
+            <View style={styles.posterHeader}>
+              <Text style={styles.posterTitle}>邀请海报</Text>
+              <TouchableOpacity onPress={() => setShowPoster(false)}>
+                <FontAwesome6 name="times" size={20} color={COLORS.textSecondary} />
+              </TouchableOpacity>
+            </View>
+            <View style={styles.posterContent}>
+              <LinearGradient
+                colors={['#1a1f2e', '#0f1419']}
+                style={styles.posterCard}
+              >
+                <View style={styles.posterLogo}>
+                  <FontAwesome6 name="chart-line" size={32} color={COLORS.primary} />
+                </View>
+                <Text style={styles.posterAppName}>TradeFuture</Text>
+                <Text style={styles.posterSlogan}>去中心化 BTC 预测市场</Text>
+                <View style={styles.posterDivider} />
+                <Text style={styles.posterInviteText}>邀请码</Text>
+                <Text style={styles.posterInviteCode}>{profile?.inviteCode || '--'}</Text>
+                <View style={styles.posterQrPlaceholder}>
+                  <FontAwesome6 name="qrcode" size={80} color={COLORS.textSecondary} />
+                  <Text style={styles.posterQrText}>扫码加入</Text>
+                </View>
+                <Text style={styles.posterFooter}>预测 BTC 价格 · 赢取丰厚奖励</Text>
+              </LinearGradient>
+            </View>
+            <View style={styles.posterActions}>
+              <TouchableOpacity style={styles.posterShareBtn} onPress={handleSharePoster}>
+                <FontAwesome6 name="share-alt" size={16} color={COLORS.background} />
+                <Text style={styles.posterShareText}>分享邀请</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </Screen>
   );
 }
@@ -528,4 +605,70 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   disconnectText: { fontSize: 13, fontWeight: '600', color: COLORS.danger },
+  // Poster Modal
+  posterOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  posterModal: {
+    width: '100%',
+    maxWidth: 340,
+    backgroundColor: COLORS.surface,
+    borderRadius: 20,
+    overflow: 'hidden',
+  },
+  posterHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  posterTitle: { fontSize: 16, fontWeight: '700', color: COLORS.textPrimary },
+  posterContent: { padding: 20 },
+  posterCard: {
+    borderRadius: 16,
+    padding: 24,
+    alignItems: 'center',
+  },
+  posterLogo: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: 'rgba(245,166,35,0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  posterAppName: { fontSize: 22, fontWeight: '800', color: COLORS.textPrimary, marginBottom: 4 },
+  posterSlogan: { fontSize: 12, color: COLORS.textSecondary, marginBottom: 16 },
+  posterDivider: { width: 40, height: 2, backgroundColor: COLORS.primary, marginBottom: 16 },
+  posterInviteText: { fontSize: 12, color: COLORS.textSecondary, marginBottom: 4 },
+  posterInviteCode: { fontSize: 24, fontWeight: '800', color: COLORS.primary, fontFamily: 'monospace', marginBottom: 16 },
+  posterQrPlaceholder: {
+    width: 140,
+    height: 140,
+    backgroundColor: COLORS.surfaceElevated,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  posterQrText: { fontSize: 11, color: COLORS.textSecondary, marginTop: 8 },
+  posterFooter: { fontSize: 11, color: COLORS.textSecondary },
+  posterActions: { padding: 16, paddingTop: 0 },
+  posterShareBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    borderRadius: 12,
+    backgroundColor: COLORS.primary,
+  },
+  posterShareText: { fontSize: 15, fontWeight: '700', color: COLORS.background },
 });
