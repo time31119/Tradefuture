@@ -194,7 +194,7 @@ app.get('/api/v1/node/overview', (req, res) => {
       lpLocked: 50000,
       lpWithdrawable: 0,
       lpUnlockProgress: { current: 12, total: 50 },
-      nextUnlockAmount: 100,
+      nextUnlockAmount: 1000,
       nextUnlockDays: 3,
       // 节点获取规则
       burnNodePrice: 100000, // 销毁100000 TFT获得1个节点
