@@ -38,7 +38,15 @@ interface NodeData {
   lpUnlockProgress: { current: number; total: number };
   nextUnlockAmount: number;
   nextUnlockDays: number;
-  nodePrice: number;
+  // 节点获取规则
+  burnNodePrice: number; // 销毁100000 TFT获得1个节点
+  lpNodePrice: number; // 添加50000 TFT + 50000 USDT等值LP获得1个节点
+  lpUnlockPeriods: number; // LP分50期解锁
+  lpUnlockInterval: number; // 每30天解锁一次
+  lpUnlockPercentPerPeriod: number; // 每次解锁2%
+  // 参与状态
+  hasBurned: boolean; // 是否已参与销毁TFT获取节点
+  hasAddedLP: boolean; // 是否已参与添加LP获取节点
   rewards: Reward[];
 }
 
@@ -48,7 +56,7 @@ export default function NodeScreen() {
   const { isConnected } = useWallet();
   const [data, setData] = useState<NodeData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [tftAmount, setTftAmount] = useState('5000');
+  const [tftAmount, setTftAmount] = useState('100000');
   const [acquireMethod, setAcquireMethod] = useState<'burn' | 'lp'>('burn');
   const [claiming, setClaiming] = useState(false);
   const [withdrawing, setWithdrawing] = useState(false);
@@ -109,9 +117,26 @@ export default function NodeScreen() {
       Alert.alert('需要钱包', '请先连接钱包');
       return;
     }
+
+    // 检查是否已参与过
+    if (acquireMethod === 'burn' && data?.hasBurned) {
+      Alert.alert('无法参与', '您已参与过销毁TFT获取节点，同一账户只能参与一次');
+      return;
+    }
+    if (acquireMethod === 'lp' && data?.hasAddedLP) {
+      Alert.alert('无法参与', '您已参与过添加LP获取节点，同一账户只能参与一次');
+      return;
+    }
+
     const amount = parseFloat(tftAmount);
-    if (!amount || amount < 5000) {
-      Alert.alert('金额无效', '至少需要 5000 TFT');
+    const minAmount = acquireMethod === 'burn' ? (data?.burnNodePrice || 100000) : (data?.lpNodePrice || 50000);
+    
+    if (!amount || amount < minAmount) {
+      if (acquireMethod === 'burn') {
+        Alert.alert('金额无效', `至少需要 ${minAmount.toLocaleString()} TFT`);
+      } else {
+        Alert.alert('金额无效', `至少需要 ${minAmount.toLocaleString()} TFT + ${minAmount.toLocaleString()} USDT等值LP`);
+      }
       return;
     }
     try {
@@ -127,8 +152,14 @@ export default function NodeScreen() {
       });
       const result = await res.json();
       if (result.success) {
-        Alert.alert('成功', `成功获取 ${result.data.nodesAcquired} 个节点！`);
+        if (acquireMethod === 'burn') {
+          Alert.alert('销毁成功', `成功销毁 ${amount.toLocaleString()} TFT，获得 ${result.data.nodesAcquired} 个节点！\nTFT已转入黑洞地址，总量减少`);
+        } else {
+          Alert.alert('添加LP成功', `成功添加 ${amount.toLocaleString()} TFT + ${amount.toLocaleString()} USDT等值LP，获得 ${result.data.nodesAcquired} 个节点！\nLP已锁仓，分50期解锁，每30天解锁2%`);
+        }
         fetchData();
+      } else {
+        Alert.alert('错误', result.error || '获取节点失败，请重试');
       }
     } catch (error) {
       console.error('Acquire node error:', error);
@@ -177,7 +208,11 @@ export default function NodeScreen() {
     }
   };
 
-  const estimatedNodes = Math.floor((parseFloat(tftAmount) || 0) / 5000);
+  const burnNodePrice = data?.burnNodePrice || 100000;
+  const lpNodePrice = data?.lpNodePrice || 50000;
+  const estimatedNodes = acquireMethod === 'burn' 
+    ? Math.floor((parseFloat(tftAmount) || 0) / burnNodePrice)
+    : Math.floor((parseFloat(tftAmount) || 0) / lpNodePrice);
 
   const filteredRewards = data?.rewards.filter((reward) => {
     if (rewardFilter === 'all') return true;
@@ -264,7 +299,10 @@ export default function NodeScreen() {
           <View style={styles.methodTabs}>
             <TouchableOpacity
               style={[styles.methodTab, acquireMethod === 'burn' && styles.methodTabActive]}
-              onPress={() => setAcquireMethod('burn')}
+              onPress={() => {
+                setAcquireMethod('burn');
+                setTftAmount('100000');
+              }}
             >
               <FontAwesome6 name="fire" size={12} color={acquireMethod === 'burn' ? COLORS.primary : COLORS.textSecondary} />
               <Text style={[styles.methodTabText, acquireMethod === 'burn' && styles.methodTabTextActive]}>
@@ -273,7 +311,10 @@ export default function NodeScreen() {
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.methodTab, acquireMethod === 'lp' && styles.methodTabActive]}
-              onPress={() => setAcquireMethod('lp')}
+              onPress={() => {
+                setAcquireMethod('lp');
+                setTftAmount('50000');
+              }}
             >
               <FontAwesome6 name="droplet" size={12} color={acquireMethod === 'lp' ? COLORS.primary : COLORS.textSecondary} />
               <Text style={[styles.methodTabText, acquireMethod === 'lp' && styles.methodTabTextActive]}>
@@ -287,27 +328,43 @@ export default function NodeScreen() {
               <>
                 <View style={styles.acquireDescRow}>
                   <FontAwesome6 name="fire" size={14} color={COLORS.danger} />
-                  <Text style={styles.acquireDesc}>销毁 5000 TFT 获得 1 个节点</Text>
+                  <Text style={styles.acquireDesc}>销毁 100,000 TFT 获得 1 个节点</Text>
+                </View>
+                <View style={styles.ruleBox}>
+                  <FontAwesome6 name="circle-info" size={12} color={COLORS.primary} />
+                  <Text style={styles.ruleText}>
+                    销毁的TFT将转入黑洞地址，总量减少。拥有节点可获得美元和TFT分红。已拥有节点的账户不能参与，同一账户只能参与一次。
+                  </Text>
                 </View>
                 <View style={styles.inputRow}>
                   <TextInput
                     style={styles.acquireInput}
                     value={tftAmount}
-                    onChangeText={setTftAmount}
-                    placeholder="5000"
+                    onChangeText={(text) => {
+                      setTftAmount(text);
+                      if (acquireMethod === 'burn') {
+                        // 销毁模式默认值为100000
+                      }
+                    }}
+                    placeholder="100000"
                     placeholderTextColor={COLORS.textSecondary}
                     keyboardType="numeric"
                   />
                   <Text style={styles.inputSuffix}>TFT</Text>
                 </View>
                 <View style={styles.quickAmounts}>
-                  {[5000, 10000, 25000, 50000].map((amount) => (
+                  {[100000, 200000, 500000, 1000000].map((amount) => (
                     <TouchableOpacity
                       key={amount}
                       style={styles.quickAmountBtn}
-                      onPress={() => setTftAmount(amount.toString())}
+                      onPress={() => {
+                        setTftAmount(amount.toString());
+                        if (acquireMethod === 'burn') {
+                          // 更新默认值
+                        }
+                      }}
                     >
-                      <Text style={styles.quickAmountText}>{amount >= 10000 ? `${amount / 1000}K` : amount}</Text>
+                      <Text style={styles.quickAmountText}>{amount >= 1000000 ? `${amount / 1000000}M` : amount >= 1000 ? `${amount / 1000}K` : amount}</Text>
                     </TouchableOpacity>
                   ))}
                 </View>
@@ -315,19 +372,19 @@ export default function NodeScreen() {
                   预计获得: <Text style={styles.estimateValue}>{estimatedNodes}</Text> 个节点
                 </Text>
                 <TouchableOpacity
-                  style={[styles.acquireBtn, !isConnected && styles.acquireBtnDisabled]}
+                  style={[styles.acquireBtn, (!isConnected || data?.hasBurned) && styles.acquireBtnDisabled]}
                   onPress={handleAcquireNode}
-                  disabled={!isConnected}
+                  disabled={!isConnected || data?.hasBurned}
                 >
                   <LinearGradient
-                    colors={isConnected ? COLORS.GRADIENT_PRIMARY : ['#333', '#444']}
+                    colors={isConnected && !data?.hasBurned ? COLORS.GRADIENT_PRIMARY : ['#333', '#444']}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 0 }}
                     style={styles.acquireBtnGradient}
                   >
                     <FontAwesome6 name="fire" size={14} color={COLORS.background} />
                     <Text style={styles.acquireBtnText}>
-                      {!isConnected ? '连接钱包' : '授权并销毁'}
+                      {!isConnected ? '连接钱包' : data?.hasBurned ? '已参与过' : '授权并销毁'}
                     </Text>
                   </LinearGradient>
                 </TouchableOpacity>
@@ -336,14 +393,20 @@ export default function NodeScreen() {
               <>
                 <View style={styles.acquireDescRow}>
                   <FontAwesome6 name="droplet" size={14} color={COLORS.success} />
-                  <Text style={styles.acquireDesc}>添加等值TFT+USDT LP获得节点</Text>
+                  <Text style={styles.acquireDesc}>添加 50,000 TFT + 50,000 USDT等值LP 获得 1 个节点</Text>
+                </View>
+                <View style={styles.ruleBox}>
+                  <FontAwesome6 name="circle-info" size={12} color={COLORS.primary} />
+                  <Text style={styles.ruleText}>
+                    流动性凭证会锁仓，分50期解锁，每30天解锁2%。同一账户只能参与一次。
+                  </Text>
                 </View>
                 <View style={styles.inputRow}>
                   <TextInput
                     style={styles.acquireInput}
                     value={tftAmount}
                     onChangeText={setTftAmount}
-                    placeholder="5000"
+                    placeholder="50000"
                     placeholderTextColor={COLORS.textSecondary}
                     keyboardType="numeric"
                   />
@@ -351,25 +414,36 @@ export default function NodeScreen() {
                 </View>
                 <View style={styles.lpEquivalent}>
                   <FontAwesome6 name="arrow-right" size={10} color={COLORS.textSecondary} />
-                  <Text style={styles.lpEquivText}>≈ {Math.floor((parseFloat(tftAmount) || 0) / 2)} USDT (自动计算)</Text>
+                  <Text style={styles.lpEquivText}>≈ {Math.floor(parseFloat(tftAmount) || 0).toLocaleString()} USDT (等值)</Text>
+                </View>
+                <View style={styles.quickAmounts}>
+                  {[50000, 100000, 250000, 500000].map((amount) => (
+                    <TouchableOpacity
+                      key={amount}
+                      style={styles.quickAmountBtn}
+                      onPress={() => setTftAmount(amount.toString())}
+                    >
+                      <Text style={styles.quickAmountText}>{amount >= 1000000 ? `${amount / 1000000}M` : amount >= 1000 ? `${amount / 1000}K` : amount}</Text>
+                    </TouchableOpacity>
+                  ))}
                 </View>
                 <Text style={styles.estimateText}>
                   预计获得: <Text style={styles.estimateValue}>{estimatedNodes}</Text> 个节点
                 </Text>
                 <TouchableOpacity
-                  style={[styles.acquireBtn, !isConnected && styles.acquireBtnDisabled]}
+                  style={[styles.acquireBtn, (!isConnected || data?.hasAddedLP) && styles.acquireBtnDisabled]}
                   onPress={handleAcquireNode}
-                  disabled={!isConnected}
+                  disabled={!isConnected || data?.hasAddedLP}
                 >
                   <LinearGradient
-                    colors={isConnected ? COLORS.GRADIENT_PRIMARY : ['#333', '#444']}
+                    colors={isConnected && !data?.hasAddedLP ? COLORS.GRADIENT_PRIMARY : ['#333', '#444']}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 0 }}
                     style={styles.acquireBtnGradient}
                   >
                     <FontAwesome6 name="droplet" size={14} color={COLORS.background} />
                     <Text style={styles.acquireBtnText}>
-                      {!isConnected ? '连接钱包' : '授权并添加LP'}
+                      {!isConnected ? '连接钱包' : data?.hasAddedLP ? '已参与过' : '授权并添加LP'}
                     </Text>
                   </LinearGradient>
                 </TouchableOpacity>
@@ -696,8 +770,20 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.border,
   },
-  acquireDescRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
+  acquireDescRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
   acquireDesc: { fontSize: 13, color: COLORS.textSecondary },
+  ruleBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    backgroundColor: `${COLORS.primary}10`,
+    borderRadius: 10,
+    padding: 10,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: `${COLORS.primary}30`,
+  },
+  ruleText: { flex: 1, fontSize: 11, color: COLORS.textSecondary, lineHeight: 16 },
   inputRow: {
     flexDirection: 'row',
     alignItems: 'center',

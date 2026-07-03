@@ -196,7 +196,15 @@ app.get('/api/v1/node/overview', (req, res) => {
       lpUnlockProgress: { current: 12, total: 50 },
       nextUnlockAmount: 100,
       nextUnlockDays: 3,
-      nodePrice: 5000,
+      // 节点获取规则
+      burnNodePrice: 100000, // 销毁100000 TFT获得1个节点
+      lpNodePrice: 50000, // 添加50000 TFT + 50000 USDT等值LP获得1个节点
+      lpUnlockPeriods: 50, // LP分50期解锁
+      lpUnlockInterval: 30, // 每30天解锁一次
+      lpUnlockPercentPerPeriod: 2, // 每次解锁2%
+      // 参与状态
+      hasBurned: false, // 是否已参与销毁TFT获取节点
+      hasAddedLP: false, // 是否已参与添加LP获取节点
       rewards: [
         { id: 1, date: '2026-07-03', amount: 45.20, currency: 'USDT', type: 'node' },
         { id: 2, date: '2026-07-02', amount: 12.50, currency: 'TFT', type: 'lp' },
@@ -228,17 +236,57 @@ app.post('/api/v1/node/acquire', (req, res) => {
     return res.status(400).json({ success: false, error: 'Invalid parameters' });
   }
 
-  const nodesAcquired = Math.floor(tftAmount / 5000);
+  // 节点获取规则
+  const BURN_NODE_PRICE = 100000; // 销毁100000 TFT获得1个节点
+  const LP_NODE_PRICE = 50000; // 添加50000 TFT + 50000 USDT等值LP获得1个节点
 
-  res.json({
-    success: true,
-    data: {
-      nodesAcquired,
-      method,
-      tftAmount,
-      txHash: '0x' + Array(64).fill(0).map(() => Math.floor(Math.random() * 16).toString(16)).join(''),
-    },
-  });
+  if (method === 'burn') {
+    // 销毁TFT获取节点
+    if (tftAmount < BURN_NODE_PRICE) {
+      return res.status(400).json({ 
+        success: false, 
+        error: `销毁数量不足，至少需要 ${BURN_NODE_PRICE} TFT` 
+      });
+    }
+    const nodesAcquired = Math.floor(tftAmount / BURN_NODE_PRICE);
+    res.json({
+      success: true,
+      data: {
+        nodesAcquired,
+        method: 'burn',
+        tftAmount,
+        burnAddress: '0x0000000000000000000000000000000000000000',
+        message: 'TFT已销毁，转入黑洞地址',
+        txHash: '0x' + Array(64).fill(0).map(() => Math.floor(Math.random() * 16).toString(16)).join(''),
+      },
+    });
+  } else if (method === 'lp') {
+    // 添加LP获取节点
+    if (tftAmount < LP_NODE_PRICE) {
+      return res.status(400).json({ 
+        success: false, 
+        error: `添加数量不足，至少需要 ${LP_NODE_PRICE} TFT + ${LP_NODE_PRICE} USDT等值LP` 
+      });
+    }
+    const nodesAcquired = Math.floor(tftAmount / LP_NODE_PRICE);
+    res.json({
+      success: true,
+      data: {
+        nodesAcquired,
+        method: 'lp',
+        tftAmount,
+        usdtEquivalent: tftAmount, // 等值USDT
+        lpLocked: tftAmount * 2, // LP总量 = TFT + USDT
+        unlockPeriods: 50,
+        unlockInterval: 30, // 天
+        unlockPercentPerPeriod: 2,
+        message: 'LP已锁仓，分50期解锁，每30天解锁2%',
+        txHash: '0x' + Array(64).fill(0).map(() => Math.floor(Math.random() * 16).toString(16)).join(''),
+      },
+    });
+  } else {
+    return res.status(400).json({ success: false, error: 'Invalid method' });
+  }
 });
 
 // POST /api/v1/node/withdraw-lp - Withdraw LP from node
