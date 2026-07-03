@@ -419,7 +419,7 @@ export default function HomeScreen() {
                 style={styles.quickActionGradient}
               >
                 <View style={styles.quickActionIcon}>
-                  <FontAwesome6 name="caret-up" size={22} color="#fff" />
+                  <FontAwesome6 name="arrow-up" size={18} color="#fff" />
                 </View>
                 <Text style={styles.quickActionText}>看涨</Text>
               </LinearGradient>
@@ -436,7 +436,7 @@ export default function HomeScreen() {
                 style={styles.quickActionGradient}
               >
                 <View style={styles.quickActionIcon}>
-                  <FontAwesome6 name="caret-down" size={22} color="#fff" />
+                  <FontAwesome6 name="arrow-down" size={18} color="#fff" />
                 </View>
                 <Text style={styles.quickActionText}>看跌</Text>
               </LinearGradient>
@@ -453,7 +453,7 @@ export default function HomeScreen() {
                 style={styles.quickActionGradient}
               >
                 <View style={styles.quickActionIcon}>
-                  <FontAwesome6 name="bolt" size={20} color="#fff" />
+                  <FontAwesome6 name="bolt" size={18} color="#fff" />
                 </View>
                 <Text style={styles.quickActionText}>快速预测</Text>
               </LinearGradient>
