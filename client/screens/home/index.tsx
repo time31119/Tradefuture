@@ -418,7 +418,9 @@ export default function HomeScreen() {
                 end={{ x: 1, y: 1 }}
                 style={styles.quickActionGradient}
               >
-                <FontAwesome6 name="arrow-trend-up" size={20} color="#fff" />
+                <View style={styles.quickActionIcon}>
+                  <FontAwesome6 name="caret-up" size={22} color="#fff" />
+                </View>
                 <Text style={styles.quickActionText}>看涨</Text>
               </LinearGradient>
             </TouchableOpacity>
@@ -433,7 +435,9 @@ export default function HomeScreen() {
                 end={{ x: 1, y: 1 }}
                 style={styles.quickActionGradient}
               >
-                <FontAwesome6 name="arrow-trend-down" size={20} color="#fff" />
+                <View style={styles.quickActionIcon}>
+                  <FontAwesome6 name="caret-down" size={22} color="#fff" />
+                </View>
                 <Text style={styles.quickActionText}>看跌</Text>
               </LinearGradient>
             </TouchableOpacity>
@@ -448,8 +452,10 @@ export default function HomeScreen() {
                 end={{ x: 1, y: 1 }}
                 style={styles.quickActionGradient}
               >
-                <FontAwesome6 name="bolt" size={20} color="#fff" />
-                <Text style={styles.quickActionText}>快速</Text>
+                <View style={styles.quickActionIcon}>
+                  <FontAwesome6 name="bolt" size={20} color="#fff" />
+                </View>
+                <Text style={styles.quickActionText}>快速预测</Text>
               </LinearGradient>
             </TouchableOpacity>
           </View>
@@ -1040,6 +1046,14 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingVertical: 16,
     paddingHorizontal: 12,
+  },
+  quickActionIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   quickActionText: {
     fontSize: 15,
