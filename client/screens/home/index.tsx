@@ -414,9 +414,10 @@ export default function HomeScreen() {
         {/* Quick Actions */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>快捷操作</Text>
-          <View style={styles.quickActions}>
+          <View style={styles.quickActionsGrid}>
+            {/* 看涨 - 大按钮 */}
             <TouchableOpacity
-              style={styles.quickActionBtn}
+              style={styles.quickActionBtnLarge}
               activeOpacity={0.8}
               onPress={() => openBetModal('up')}
             >
@@ -424,16 +425,22 @@ export default function HomeScreen() {
                 colors={[COLORS.success, '#00A87E']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
-                style={styles.quickActionGradient}
+                style={styles.quickActionGradientLarge}
               >
-                <View style={styles.quickActionIcon}>
-                  <FontAwesome6 name="arrow-up" size={18} color="#fff" />
+                <View style={styles.quickActionIconLarge}>
+                  <FontAwesome6 name="arrow-trend-up" size={28} color="#fff" />
                 </View>
-                <Text style={styles.quickActionText}>看涨</Text>
+                <View style={styles.quickActionContent}>
+                  <Text style={styles.quickActionTitle}>看涨</Text>
+                  <Text style={styles.quickActionDesc}>预测价格上涨</Text>
+                </View>
+                <FontAwesome6 name="chevron-right" size={16} color="rgba(255,255,255,0.6)" />
               </LinearGradient>
             </TouchableOpacity>
+
+            {/* 看跌 - 大按钮 */}
             <TouchableOpacity
-              style={styles.quickActionBtn}
+              style={styles.quickActionBtnLarge}
               activeOpacity={0.8}
               onPress={() => openBetModal('down')}
             >
@@ -441,32 +448,42 @@ export default function HomeScreen() {
                 colors={[COLORS.danger, '#E05555']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
-                style={styles.quickActionGradient}
+                style={styles.quickActionGradientLarge}
               >
-                <View style={styles.quickActionIcon}>
-                  <FontAwesome6 name="arrow-down" size={18} color="#fff" />
+                <View style={styles.quickActionIconLarge}>
+                  <FontAwesome6 name="arrow-trend-down" size={28} color="#fff" />
                 </View>
-                <Text style={styles.quickActionText}>看跌</Text>
-              </LinearGradient>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.quickActionBtn}
-              activeOpacity={0.8}
-              onPress={() => router.push('/predict')}
-            >
-              <LinearGradient
-                colors={[COLORS.primary, COLORS.primaryLight]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.quickActionGradient}
-              >
-                <View style={styles.quickActionIcon}>
-                  <FontAwesome6 name="bolt" size={18} color="#fff" />
+                <View style={styles.quickActionContent}>
+                  <Text style={styles.quickActionTitle}>看跌</Text>
+                  <Text style={styles.quickActionDesc}>预测价格下跌</Text>
                 </View>
-                <Text style={styles.quickActionText}>快速预测</Text>
+                <FontAwesome6 name="chevron-right" size={16} color="rgba(255,255,255,0.6)" />
               </LinearGradient>
             </TouchableOpacity>
           </View>
+
+          {/* 快速预测 - 横向按钮 */}
+          <TouchableOpacity
+            style={styles.quickActionBtnWide}
+            activeOpacity={0.8}
+            onPress={() => router.push('/predict')}
+          >
+            <LinearGradient
+              colors={[COLORS.primary, COLORS.primaryLight]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.quickActionGradientWide}
+            >
+              <View style={styles.quickActionIconWide}>
+                <FontAwesome6 name="bolt" size={24} color="#fff" />
+              </View>
+              <View style={styles.quickActionContent}>
+                <Text style={styles.quickActionTitle}>快速预测</Text>
+                <Text style={styles.quickActionDesc}>进入预测市场，参与实时竞猜</Text>
+              </View>
+              <FontAwesome6 name="chevron-right" size={18} color="rgba(255,255,255,0.6)" />
+            </LinearGradient>
+          </TouchableOpacity>
         </View>
 
         {/* BTC Price + Chart */}
@@ -1041,37 +1058,71 @@ const styles = StyleSheet.create({
     color: COLORS.success,
     fontWeight: '600',
   },
-  // Quick Actions
-  quickActions: {
+  // Quick Actions - New Design
+  quickActionsGrid: {
     flexDirection: 'row',
-    gap: 10,
+    gap: 12,
+    marginBottom: 12,
   },
-  quickActionBtn: {
+  quickActionBtnLarge: {
     flex: 1,
-    borderRadius: 12,
+    borderRadius: 16,
     overflow: 'hidden',
+    shadowColor: COLORS.success,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
   },
-  quickActionGradient: {
+  quickActionGradientLarge: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-    paddingVertical: 16,
-    paddingHorizontal: 12,
+    padding: 16,
+    gap: 12,
   },
-  quickActionIcon: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+  quickActionIconLarge: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  quickActionText: {
-    fontSize: 15,
+  quickActionContent: {
+    flex: 1,
+  },
+  quickActionTitle: {
+    fontSize: 16,
     fontWeight: '700',
     color: '#fff',
-    letterSpacing: 0.5,
+    marginBottom: 2,
+  },
+  quickActionDesc: {
+    fontSize: 11,
+    color: 'rgba(255, 255, 255, 0.7)',
+  },
+  quickActionBtnWide: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  quickActionGradientWide: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 18,
+    gap: 14,
+  },
+  quickActionIconWide: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   // Price Card
   priceCard: {
