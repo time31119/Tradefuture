@@ -14,6 +14,406 @@ app.get('/api/v1/health', (req, res) => {
   res.status(200).json({ status: 'ok' });
 });
 
+// ==================== BTC Price API ====================
+
+// Generate realistic BTC price data
+function generateBTCPrice() {
+  const basePrice = 67500 + Math.random() * 2000;
+  return {
+    price: basePrice,
+    change24h: (Math.random() - 0.45) * 5,
+    high24h: basePrice + Math.random() * 800,
+    low24h: basePrice - Math.random() * 800,
+    volume24h: 28000000000 + Math.random() * 5000000000,
+  };
+}
+
+function generateKlineData(count: number = 30) {
+  const data = [];
+  let basePrice = 67000 + Math.random() * 1000;
+  const now = Date.now();
+
+  for (let i = count; i >= 0; i--) {
+    const timestamp = now - i * 5 * 60 * 1000; // 5 min intervals
+    const open = basePrice;
+    const change = (Math.random() - 0.48) * 300;
+    const close = open + change;
+    const high = Math.max(open, close) + Math.random() * 150;
+    const low = Math.min(open, close) - Math.random() * 150;
+    const volume = 50 + Math.random() * 200;
+
+    data.push({
+      timestamp,
+      open: Math.round(open * 100) / 100,
+      close: Math.round(close * 100) / 100,
+      high: Math.round(high * 100) / 100,
+      low: Math.round(low * 100) / 100,
+      volume: Math.round(volume * 100) / 100,
+    });
+
+    basePrice = close;
+  }
+  return data;
+}
+
+// GET /api/v1/btc/price - Current BTC price
+app.get('/api/v1/btc/price', (req, res) => {
+  const priceData = generateBTCPrice();
+  res.json({
+    success: true,
+    data: priceData,
+  });
+});
+
+// GET /api/v1/btc/kline - K-line data
+app.get('/api/v1/btc/kline', (req, res) => {
+  const count = parseInt(req.query.count as string) || 30;
+  const klineData = generateKlineData(count);
+  res.json({
+    success: true,
+    data: klineData,
+  });
+});
+
+// ==================== Dashboard API ====================
+
+// GET /api/v1/dashboard/overview - Dashboard overview data
+app.get('/api/v1/dashboard/overview', (req, res) => {
+  const walletConnected = req.query.wallet === 'true';
+
+  res.json({
+    success: true,
+    data: {
+      accountValue: walletConnected ? 12345.67 : null,
+      pnl24h: walletConnected ? 230.50 : null,
+      activePositions: walletConnected ? 3 : null,
+      volume24h: 45600,
+      insurancePoolBalance: 125678,
+      insurancePoolInjection: 234,
+    },
+  });
+});
+
+// ==================== Prediction API ====================
+
+// In-memory prediction store
+const predictions: any[] = [
+  { id: 1, time: '09:05', direction: 'up', amount: 50, status: 'won', profit: 82.50, round: 1284 },
+  { id: 2, time: '09:00', direction: 'down', amount: 30, status: 'pending', profit: 0, round: 1285 },
+  { id: 3, time: '08:55', direction: 'up', amount: 100, status: 'lost', profit: -100, round: 1283 },
+  { id: 4, time: '08:50', direction: 'up', amount: 75, status: 'claimed', profit: 123.75, round: 1282 },
+  { id: 5, time: '08:45', direction: 'down', amount: 200, status: 'won', profit: 340.00, round: 1281 },
+  { id: 6, time: '08:40', direction: 'up', amount: 50, status: 'lost', profit: -50, round: 1280 },
+  { id: 7, time: '08:35', direction: 'down', amount: 150, status: 'claimed', profit: 255.00, round: 1279 },
+  { id: 8, time: '08:30', direction: 'up', amount: 80, status: 'won', profit: 132.00, round: 1278 },
+];
+
+// GET /api/v1/predictions - Get user predictions
+app.get('/api/v1/predictions', (req, res) => {
+  const status = req.query.status as string;
+  let filtered = [...predictions];
+
+  if (status && status !== 'all') {
+    filtered = filtered.filter(p => p.status === status);
+  }
+
+  res.json({
+    success: true,
+    data: {
+      predictions: filtered,
+      currentRound: 1285,
+      timeLeftSeconds: 222,
+      oddsUp: 1.8,
+      oddsDown: 2.2,
+      participationCount: 1,
+      maxParticipation: 1,
+      isVIP: false,
+    },
+  });
+});
+
+// POST /api/v1/predictions - Create a new prediction
+app.post('/api/v1/predictions', (req, res) => {
+  const { direction, amount } = req.body;
+
+  if (!direction || !amount || amount < 1) {
+    return res.status(400).json({ success: false, error: 'Invalid parameters' });
+  }
+
+  const newPrediction = {
+    id: predictions.length + 1,
+    time: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }),
+    direction,
+    amount: parseFloat(amount),
+    status: 'pending',
+    profit: 0,
+    round: 1285,
+  };
+
+  predictions.unshift(newPrediction);
+
+  res.json({
+    success: true,
+    data: newPrediction,
+  });
+});
+
+// POST /api/v1/predictions/:id/claim - Claim prediction reward
+app.post('/api/v1/predictions/:id/claim', (req, res) => {
+  const id = parseInt(req.params.id);
+  const prediction = predictions.find(p => p.id === id);
+
+  if (!prediction) {
+    return res.status(404).json({ success: false, error: 'Prediction not found' });
+  }
+
+  if (prediction.status !== 'won') {
+    return res.status(400).json({ success: false, error: 'Cannot claim this prediction' });
+  }
+
+  prediction.status = 'claimed';
+
+  res.json({
+    success: true,
+    data: prediction,
+  });
+});
+
+// ==================== Node API ====================
+
+// GET /api/v1/node/overview - Node partner overview
+app.get('/api/v1/node/overview', (req, res) => {
+  res.json({
+    success: true,
+    data: {
+      activeNodes: 3,
+      maxNodes: 5,
+      pendingRewardsUSDT: 234.50,
+      pendingRewardsTFT: 56.78,
+      totalClaimedRewards: 1890.25,
+      lpLocked: 5000,
+      lpWithdrawable: 0,
+      lpUnlockProgress: { current: 12, total: 50 },
+      nextUnlockAmount: 100,
+      nextUnlockDays: 3,
+      nodePrice: 5000,
+      rewards: [
+        { id: 1, date: '2026-07-03', amount: 45.20, currency: 'USDT', type: 'node' },
+        { id: 2, date: '2026-07-02', amount: 12.50, currency: 'TFT', type: 'lp' },
+        { id: 3, date: '2026-07-01', amount: 38.90, currency: 'USDT', type: 'node' },
+        { id: 4, date: '2026-06-30', amount: 8.30, currency: 'TFT', type: 'lp' },
+        { id: 5, date: '2026-06-29', amount: 52.10, currency: 'USDT', type: 'node' },
+      ],
+    },
+  });
+});
+
+// POST /api/v1/node/claim - Claim node rewards
+app.post('/api/v1/node/claim', (req, res) => {
+  res.json({
+    success: true,
+    data: {
+      claimedUSDT: 234.50,
+      claimedTFT: 56.78,
+      txHash: '0x' + Array(64).fill(0).map(() => Math.floor(Math.random() * 16).toString(16)).join(''),
+    },
+  });
+});
+
+// POST /api/v1/node/acquire - Acquire node
+app.post('/api/v1/node/acquire', (req, res) => {
+  const { method, tftAmount } = req.body;
+
+  if (!method || !tftAmount) {
+    return res.status(400).json({ success: false, error: 'Invalid parameters' });
+  }
+
+  const nodesAcquired = Math.floor(tftAmount / 5000);
+
+  res.json({
+    success: true,
+    data: {
+      nodesAcquired,
+      method,
+      tftAmount,
+      txHash: '0x' + Array(64).fill(0).map(() => Math.floor(Math.random() * 16).toString(16)).join(''),
+    },
+  });
+});
+
+// ==================== Swap API ====================
+
+// GET /api/v1/swap/balances - Get user balances
+app.get('/api/v1/swap/balances', (req, res) => {
+  res.json({
+    success: true,
+    data: {
+      tftBalance: 12345.67,
+      usdtBalance: 8765.43,
+      lpBalance: 1234.56,
+      tftPrice: 0.50,
+      totalLP: 274560,
+      poolTFT: 549120,
+      poolUSDT: 274560,
+    },
+  });
+});
+
+// GET /api/v1/swap/quote - Get swap quote
+app.get('/api/v1/swap/quote', (req, res) => {
+  const { fromToken, toToken, amount } = req.query;
+  const amountNum = parseFloat(amount as string) || 0;
+  const rate = fromToken === 'TFT' ? 0.50 : 2.00;
+  const outputAmount = amountNum * rate * (1 - 0.005); // 0.5% fee
+
+  res.json({
+    success: true,
+    data: {
+      inputAmount: amountNum,
+      outputAmount: Math.round(outputAmount * 100) / 100,
+      rate,
+      slippage: 0.5,
+      fee: 0.5,
+    },
+  });
+});
+
+// POST /api/v1/swap/execute - Execute swap
+app.post('/api/v1/swap/execute', (req, res) => {
+  const { fromToken, toToken, amount } = req.body;
+
+  if (!fromToken || !toToken || !amount) {
+    return res.status(400).json({ success: false, error: 'Invalid parameters' });
+  }
+
+  res.json({
+    success: true,
+    data: {
+      txHash: '0x' + Array(64).fill(0).map(() => Math.floor(Math.random() * 16).toString(16)).join(''),
+      fromToken,
+      toToken,
+      amount,
+    },
+  });
+});
+
+// POST /api/v1/swap/add-liquidity - Add liquidity
+app.post('/api/v1/swap/add-liquidity', (req, res) => {
+  const { tftAmount, usdtAmount } = req.body;
+
+  res.json({
+    success: true,
+    data: {
+      lpReceived: (parseFloat(tftAmount || 0) + parseFloat(usdtAmount || 0)) / 2,
+      txHash: '0x' + Array(64).fill(0).map(() => Math.floor(Math.random() * 16).toString(16)).join(''),
+    },
+  });
+});
+
+// POST /api/v1/swap/remove-liquidity - Remove liquidity
+app.post('/api/v1/swap/remove-liquidity', (req, res) => {
+  const { lpAmount } = req.body;
+
+  res.json({
+    success: true,
+    data: {
+      tftReturned: parseFloat(lpAmount || 0) * 0.5,
+      usdtReturned: parseFloat(lpAmount || 0) * 0.25,
+      txHash: '0x' + Array(64).fill(0).map(() => Math.floor(Math.random() * 16).toString(16)).join(''),
+    },
+  });
+});
+
+// ==================== Profile API ====================
+
+// GET /api/v1/profile - Get user profile
+app.get('/api/v1/profile', (req, res) => {
+  res.json({
+    success: true,
+    data: {
+      address: '0x7a3B...f3e8',
+      fullAddress: '0x7a3B4C5D6E7F8A9B0C1D2E3F4A5B6C7D8E9f3e8',
+      isVIP: true,
+      vipExpiry: '2027-01-15',
+      vipDaysLeft: 364,
+      accountValue: 18234.50,
+      inviter: '0x3e...d1a2',
+      inviteCode: 'TF20260115ABC',
+      totalReferralReward: 1234.50,
+      pendingReferralReward: 56.78,
+      directReferrals: 23,
+      teamVolume: 45678.90,
+      teamMembers: [
+        { id: 1, address: '0x3e...d1a2', level: 1, volume: 5600, contribution: 56.00 },
+        { id: 2, address: '0x8f...a2b3', level: 2, volume: 3200, contribution: 25.60 },
+        { id: 3, address: '0x1c...e4f5', level: 1, volume: 8900, contribution: 89.00 },
+        { id: 4, address: '0x9d...c6a7', level: 3, volume: 12000, contribution: 96.00 },
+        { id: 5, address: '0x5b...d8e9', level: 2, volume: 4500, contribution: 36.00 },
+      ],
+    },
+  });
+});
+
+// POST /api/v1/profile/activate-vip - Activate VIP
+app.post('/api/v1/profile/activate-vip', (req, res) => {
+  const { inviterCode } = req.body;
+
+  res.json({
+    success: true,
+    data: {
+      isVIP: true,
+      vipExpiry: '2027-07-03',
+      vipDaysLeft: 365,
+      txHash: '0x' + Array(64).fill(0).map(() => Math.floor(Math.random() * 16).toString(16)).join(''),
+    },
+  });
+});
+
+// POST /api/v1/profile/bind-inviter - Bind inviter
+app.post('/api/v1/profile/bind-inviter', (req, res) => {
+  const { inviterCode } = req.body;
+
+  if (!inviterCode) {
+    return res.status(400).json({ success: false, error: 'Inviter code is required' });
+  }
+
+  res.json({
+    success: true,
+    data: {
+      inviter: '0x3e...d1a2',
+      bound: true,
+    },
+  });
+});
+
+// POST /api/v1/profile/claim-referral - Claim referral rewards
+app.post('/api/v1/profile/claim-referral', (req, res) => {
+  res.json({
+    success: true,
+    data: {
+      claimed: 56.78,
+      txHash: '0x' + Array(64).fill(0).map(() => Math.floor(Math.random() * 16).toString(16)).join(''),
+    },
+  });
+});
+
+// ==================== Wallet API ====================
+
+// POST /api/v1/wallet/connect - Simulate wallet connection
+app.post('/api/v1/wallet/connect', (req, res) => {
+  res.json({
+    success: true,
+    data: {
+      address: '0x7a3B4C5D6E7F8A9B0C1D2E3F4A5B6C7D8E9f3e8',
+      shortAddress: '0x7a3B...f3e8',
+      chainId: 56,
+      chainName: 'BSC Mainnet',
+      tftBalance: 12345.67,
+      usdtBalance: 8765.43,
+      bnbBalance: 1.234,
+    },
+  });
+});
 
 app.listen(port, () => {
   console.log(`Server listening at http://localhost:${port}/`);
