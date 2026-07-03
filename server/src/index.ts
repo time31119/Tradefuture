@@ -191,7 +191,7 @@ app.get('/api/v1/node/overview', (req, res) => {
       pendingRewardsUSDT: 234.50,
       pendingRewardsTFT: 56.78,
       totalClaimedRewards: 1890.25,
-      lpLocked: 5000,
+      lpLocked: 50000,
       lpWithdrawable: 0,
       lpUnlockProgress: { current: 12, total: 50 },
       nextUnlockAmount: 100,
