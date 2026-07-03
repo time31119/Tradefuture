@@ -919,7 +919,7 @@ export default function HomeScreen() {
   );
 }
 
-// Mini Chart Component
+// Mini Line Chart Component
 interface MiniChartProps {
   data: KlineItem[];
 }
@@ -927,69 +927,129 @@ interface MiniChartProps {
 function MiniChart({ data }: MiniChartProps) {
   const chartWidth = width - 48;
   const chartHeight = 120;
-  const barWidth = chartWidth / data.length;
-  const bodyWidth = Math.max(barWidth * 0.6, 4);
-
-  const maxPrice = Math.max(...data.map(d => d.high));
-  const minPrice = Math.min(...data.map(d => d.low));
-  const priceRange = maxPrice - minPrice || 1;
   const padding = 8;
   const usableHeight = chartHeight - padding * 2;
+
+  // Simple format function for prices
+  const formatPrice = (num: number) => {
+    if (num >= 1000) {
+      return num.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    }
+    return num.toFixed(2);
+  };
+
+  // Use close prices for line chart
+  const prices = data.map(d => d.close);
+  const maxPrice = Math.max(...prices);
+  const minPrice = Math.min(...prices);
+  const priceRange = maxPrice - minPrice || 1;
+
+  // Calculate points for the line
+  const points = prices.map((price, index) => {
+    const x = (index / (prices.length - 1)) * chartWidth;
+    const y = padding + ((maxPrice - price) / priceRange) * usableHeight;
+    return { x, y };
+  });
+
+  // Determine line color based on overall trend
+  const isUp = prices[prices.length - 1] >= prices[0];
+  const lineColor = isUp ? COLORS.success : COLORS.danger;
 
   return (
     <View style={miniChartStyles.container}>
       <View style={[miniChartStyles.chart, { width: chartWidth, height: chartHeight }]}>
-        {data.map((item, index) => {
-          const isUp = item.close >= item.open;
-          const color = isUp ? COLORS.success : COLORS.danger;
-
-          const highY = padding + ((maxPrice - item.high) / priceRange) * usableHeight;
-          const lowY = padding + ((maxPrice - item.low) / priceRange) * usableHeight;
-          const openY = padding + ((maxPrice - item.open) / priceRange) * usableHeight;
-          const closeY = padding + ((maxPrice - item.close) / priceRange) * usableHeight;
-
-          const bodyTop = Math.min(openY, closeY);
-          const bodyHeight = Math.max(Math.abs(closeY - openY), 2);
-          const centerX = index * barWidth + barWidth / 2;
-
+        {/* Grid lines */}
+        <View style={[miniChartStyles.gridLine, { top: padding }]} />
+        <View style={[miniChartStyles.gridLine, { top: padding + usableHeight / 2 }]} />
+        <View style={[miniChartStyles.gridLine, { top: padding + usableHeight }]} />
+        
+        {/* Area fill - simplified gradient effect */}
+        <View style={{
+          position: 'absolute',
+          left: 0,
+          top: 0,
+          width: chartWidth,
+          height: chartHeight,
+          overflow: 'hidden',
+        }}>
+          {points.map((point, index) => {
+            if (index === 0) return null;
+            const prevPoint = points[index - 1];
+            const segmentWidth = Math.abs(point.x - prevPoint.x);
+            const avgY = (point.y + prevPoint.y) / 2;
+            const fillHeight = chartHeight - avgY;
+            
+            return (
+              <View
+                key={`fill-${index}`}
+                style={{
+                  position: 'absolute',
+                  left: Math.min(prevPoint.x, point.x),
+                  top: avgY,
+                  width: segmentWidth + 1,
+                  height: fillHeight,
+                  backgroundColor: lineColor + '20', // ~12% opacity
+                }}
+              />
+            );
+          })}
+        </View>
+        
+        {/* Line segments */}
+        {points.map((point, index) => {
+          if (index === 0) return null;
+          const prevPoint = points[index - 1];
+          const segmentWidth = Math.sqrt(
+            Math.pow(point.x - prevPoint.x, 2) + Math.pow(point.y - prevPoint.y, 2)
+          );
+          const angle = Math.atan2(point.y - prevPoint.y, point.x - prevPoint.x) * 180 / Math.PI;
+          
           return (
             <View
               key={index}
-              style={[
-                miniChartStyles.candle,
-                { left: centerX - bodyWidth / 2, width: bodyWidth }
-              ]}
-            >
-              {/* Wick (high-low line) */}
-              <View style={{
+              style={{
                 position: 'absolute',
-                left: (bodyWidth - 1.5) / 2,
-                top: highY,
-                height: lowY - highY,
-                width: 1.5,
-                backgroundColor: color,
-              }} />
-              {/* Body (open-close rectangle) */}
-              <View style={{
-                position: 'absolute',
-                left: 0,
-                top: bodyTop,
-                height: bodyHeight,
-                width: bodyWidth,
-                backgroundColor: color,
-                borderRadius: 1,
-              }} />
-            </View>
+                left: prevPoint.x,
+                top: prevPoint.y,
+                width: segmentWidth,
+                height: 2,
+                backgroundColor: lineColor,
+                transform: [{ rotate: `${angle}deg` }],
+                transformOrigin: 'left',
+              }}
+            />
           );
         })}
-      </View>
-      {/* Time labels */}
-      <View style={[miniChartStyles.timeLabels, { width: chartWidth }]}>
-        {data.filter((_, i) => i % 3 === 0).map((item, i) => (
-          <Text key={i} style={miniChartStyles.timeLabel}>
-            {new Date(item.timestamp).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}
-          </Text>
+        
+        {/* Data points */}
+        {points.map((point, index) => (
+          <View
+            key={`point-${index}`}
+            style={{
+              position: 'absolute',
+              left: point.x - 3,
+              top: point.y - 3,
+              width: 6,
+              height: 6,
+              borderRadius: 3,
+              backgroundColor: lineColor,
+              borderWidth: 1,
+              borderColor: '#fff',
+            }}
+          />
         ))}
+      </View>
+      {/* Price labels */}
+      <View style={[miniChartStyles.priceLabels, { width: chartWidth }]}>
+        <Text style={[miniChartStyles.priceLabel, { color: lineColor }]}>
+          ${formatPrice(maxPrice)}
+        </Text>
+        <Text style={miniChartStyles.priceLabel}>
+          ${formatPrice((maxPrice + minPrice) / 2)}
+        </Text>
+        <Text style={[miniChartStyles.priceLabel, { color: lineColor }]}>
+          ${formatPrice(minPrice)}
+        </Text>
       </View>
     </View>
   );
@@ -997,24 +1057,25 @@ function MiniChart({ data }: MiniChartProps) {
 
 const miniChartStyles = StyleSheet.create({
   container: {
-    alignItems: 'center',
+    marginTop: 12,
   },
   chart: {
     position: 'relative',
+    overflow: 'hidden',
   },
-  candle: {
+  gridLine: {
     position: 'absolute',
-    top: 0,
-    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 1,
+    backgroundColor: COLORS.border + '40',
   },
-  wick: {},
-  body: {},
-  timeLabels: {
+  priceLabels: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginTop: 4,
   },
-  timeLabel: {
+  priceLabel: {
     fontSize: 9,
     color: COLORS.textSecondary,
   },
