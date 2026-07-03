@@ -40,7 +40,8 @@ interface NodeData {
   nextUnlockDays: number;
   // 节点获取规则
   burnNodePrice: number; // 销毁100000 TFT获得1个节点
-  lpNodePrice: number; // 添加50000 TFT + 50000 USDT等值LP获得1个节点
+  lpNodePrice: number; // 添加50000 TFT + 等值USDT获得1个节点
+  tftPrice: number; // 当前TFT价格
   lpUnlockPeriods: number; // LP分50期解锁
   lpUnlockInterval: number; // 每30天解锁一次
   lpUnlockPercentPerPeriod: number; // 每次解锁2%
@@ -63,6 +64,7 @@ export default function NodeScreen() {
   const [rewardFilter, setRewardFilter] = useState<RewardFilter>('all');
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
   const [withdrawAmount, setWithdrawAmount] = useState('');
+  const [showLPConfirmModal, setShowLPConfirmModal] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
@@ -135,10 +137,25 @@ export default function NodeScreen() {
       if (acquireMethod === 'burn') {
         Alert.alert('金额无效', `至少需要 ${minAmount.toLocaleString()} TFT`);
       } else {
-        Alert.alert('金额无效', `至少需要 ${minAmount.toLocaleString()} TFT + ${minAmount.toLocaleString()} USDT等值LP`);
+        Alert.alert('金额无效', `至少需要 ${minAmount.toLocaleString()} TFT + 等值USDT`);
       }
       return;
     }
+
+    // 对于LP方式，显示确认弹窗
+    if (acquireMethod === 'lp') {
+      setShowLPConfirmModal(true);
+      return;
+    }
+
+    // 销毁方式直接执行
+    await executeAcquireNode();
+  };
+
+  const executeAcquireNode = async () => {
+    const amount = parseFloat(tftAmount);
+    setShowLPConfirmModal(false);
+    
     try {
       /**
        * 服务端文件：server/src/index.ts
@@ -155,7 +172,8 @@ export default function NodeScreen() {
         if (acquireMethod === 'burn') {
           Alert.alert('销毁成功', `成功销毁 ${amount.toLocaleString()} TFT，获得 ${result.data.nodesAcquired} 个节点！\nTFT已转入黑洞地址，总量减少`);
         } else {
-          Alert.alert('添加LP成功', `成功添加 ${amount.toLocaleString()} TFT + ${amount.toLocaleString()} USDT等值LP，获得 ${result.data.nodesAcquired} 个节点！\nLP已锁仓，分50期解锁，每30天解锁2%`);
+          const usdtEquiv = (amount * (data?.tftPrice || 1)).toFixed(2);
+          Alert.alert('添加LP成功', `成功添加 ${amount.toLocaleString()} TFT + ${parseFloat(usdtEquiv).toLocaleString()} USDT LP，获得 ${result.data.nodesAcquired} 个节点！\nLP已锁仓，分50期解锁，每30天解锁2%`);
         }
         fetchData();
       } else {
@@ -401,6 +419,13 @@ export default function NodeScreen() {
                     添加50000 TFT及对应等值USDT的流动性，获得1个节点。流动性凭证会锁仓，分50期解锁，每30天解锁2%。同一账户只能参与一次。
                   </Text>
                 </View>
+                {/* TFT Price Display */}
+                <View style={styles.lpPriceBox}>
+                  <View style={styles.lpPriceRow}>
+                    <Text style={styles.lpPriceLabel}>当前TFT价格</Text>
+                    <Text style={styles.lpPriceValue}>1 TFT ≈ {(data?.tftPrice || 1).toFixed(2)} USDT</Text>
+                  </View>
+                </View>
                 <View style={styles.inputRow}>
                   <TextInput
                     style={styles.acquireInput}
@@ -412,10 +437,30 @@ export default function NodeScreen() {
                   />
                   <Text style={styles.inputSuffix}>TFT</Text>
                 </View>
+                {/* USDT Equivalent Display */}
                 <View style={styles.lpEquivalent}>
-                  <FontAwesome6 name="arrow-right" size={10} color={COLORS.textSecondary} />
-                  <Text style={styles.lpEquivText}>+ {Math.floor(parseFloat(tftAmount) || 0).toLocaleString()} USDT (TFT等值)</Text>
+                  <FontAwesome6 name="plus" size={10} color={COLORS.success} />
+                  <Text style={styles.lpEquivText}>
+                    + {Math.floor((parseFloat(tftAmount) || 0) * (data?.tftPrice || 1)).toLocaleString()} USDT (TFT等值)
+                  </Text>
                 </View>
+                {/* LP Details */}
+                {parseFloat(tftAmount) >= 50000 && (
+                  <View style={styles.lpDetailsBox}>
+                    <View style={styles.lpDetailRow}>
+                      <Text style={styles.lpDetailLabel}>获得节点</Text>
+                      <Text style={styles.lpDetailValue}>{Math.floor((parseFloat(tftAmount) || 0) / 50000)} 个</Text>
+                    </View>
+                    <View style={styles.lpDetailRow}>
+                      <Text style={styles.lpDetailLabel}>锁仓期限</Text>
+                      <Text style={styles.lpDetailValue}>50期 (约1500天)</Text>
+                    </View>
+                    <View style={styles.lpDetailRow}>
+                      <Text style={styles.lpDetailLabel}>解锁频率</Text>
+                      <Text style={styles.lpDetailValue}>每30天解锁2%</Text>
+                    </View>
+                  </View>
+                )}
                 <View style={styles.quickAmounts}>
                   {[50000, 100000, 250000, 500000].map((amount) => (
                     <TouchableOpacity
@@ -675,6 +720,95 @@ export default function NodeScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* LP Confirmation Modal */}
+      <Modal
+        visible={showLPConfirmModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowLPConfirmModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>确认添加LP</Text>
+              <TouchableOpacity onPress={() => setShowLPConfirmModal(false)}>
+                <FontAwesome6 name="xmark" size={20} color={COLORS.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.modalBody}>
+              <View style={styles.lpConfirmBox}>
+                <View style={styles.lpConfirmRow}>
+                  <Text style={styles.lpConfirmLabel}>TFT数量</Text>
+                  <Text style={styles.lpConfirmValue}>{parseFloat(tftAmount).toLocaleString()} TFT</Text>
+                </View>
+                <View style={styles.lpConfirmRow}>
+                  <Text style={styles.lpConfirmLabel}>USDT等值</Text>
+                  <Text style={styles.lpConfirmValue}>
+                    + {Math.floor((parseFloat(tftAmount) || 0) * (data?.tftPrice || 1)).toLocaleString()} USDT
+                  </Text>
+                </View>
+                <View style={styles.lpConfirmDivider} />
+                <View style={styles.lpConfirmRow}>
+                  <Text style={styles.lpConfirmLabel}>获得节点</Text>
+                  <Text style={[styles.lpConfirmValue, { color: COLORS.success }]}>
+                    {Math.floor((parseFloat(tftAmount) || 0) / 50000)} 个
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.lpLockInfoBox}>
+                <View style={styles.lpLockInfoHeader}>
+                  <FontAwesome6 name="lock" size={12} color={COLORS.primary} />
+                  <Text style={styles.lpLockInfoTitle}>锁仓规则</Text>
+                </View>
+                <View style={styles.lpLockInfoRow}>
+                  <Text style={styles.lpLockInfoText}>锁仓期限</Text>
+                  <Text style={styles.lpLockInfoValue}>50期 (约1500天)</Text>
+                </View>
+                <View style={styles.lpLockInfoRow}>
+                  <Text style={styles.lpLockInfoText}>解锁频率</Text>
+                  <Text style={styles.lpLockInfoValue}>每30天解锁2%</Text>
+                </View>
+                <View style={styles.lpLockInfoRow}>
+                  <Text style={styles.lpLockInfoText}>首次解锁</Text>
+                  <Text style={styles.lpLockInfoValue}>30天后</Text>
+                </View>
+              </View>
+
+              <View style={styles.lpWarningBox}>
+                <FontAwesome6 name="triangle-exclamation" size={12} color={COLORS.primary} />
+                <Text style={styles.lpWarningText}>
+                  添加LP后，流动性凭证将被锁仓。请确认您了解锁仓规则。
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.modalFooter}>
+              <TouchableOpacity
+                style={styles.modalCancelBtn}
+                onPress={() => setShowLPConfirmModal(false)}
+              >
+                <Text style={styles.modalCancelText}>取消</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.modalConfirmBtn}
+                onPress={executeAcquireNode}
+              >
+                <LinearGradient
+                  colors={COLORS.GRADIENT_PRIMARY}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.modalConfirmGradient}
+                >
+                  <Text style={styles.modalConfirmText}>确认添加</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </Screen>
   );
 }
@@ -784,6 +918,69 @@ const styles = StyleSheet.create({
     borderColor: `${COLORS.primary}30`,
   },
   ruleText: { flex: 1, fontSize: 11, color: COLORS.textSecondary, lineHeight: 16 },
+  // LP Price Box
+  lpPriceBox: {
+    backgroundColor: `${COLORS.success}10`,
+    borderRadius: 10,
+    padding: 10,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: `${COLORS.success}30`,
+  },
+  lpPriceRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  lpPriceLabel: { fontSize: 12, color: COLORS.textSecondary },
+  lpPriceValue: { fontSize: 14, color: COLORS.success, fontWeight: '600' },
+  // LP Details Box
+  lpDetailsBox: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  lpDetailRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
+  lpDetailLabel: { fontSize: 12, color: COLORS.textSecondary },
+  lpDetailValue: { fontSize: 12, color: COLORS.textPrimary, fontWeight: '500' },
+  // LP Confirm Modal
+  lpConfirmBox: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  lpConfirmRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+  lpConfirmLabel: { fontSize: 13, color: COLORS.textSecondary },
+  lpConfirmValue: { fontSize: 14, color: COLORS.textPrimary, fontWeight: '600' },
+  lpConfirmDivider: { height: 1, backgroundColor: COLORS.border, marginVertical: 8 },
+  // LP Lock Info
+  lpLockInfoBox: {
+    backgroundColor: `${COLORS.primary}10`,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: `${COLORS.primary}30`,
+  },
+  lpLockInfoHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10 },
+  lpLockInfoTitle: { fontSize: 13, color: COLORS.primary, fontWeight: '600' },
+  lpLockInfoRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
+  lpLockInfoText: { fontSize: 12, color: COLORS.textSecondary },
+  lpLockInfoValue: { fontSize: 12, color: COLORS.textPrimary, fontWeight: '500' },
+  // LP Warning
+  lpWarningBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: `${COLORS.primary}15`,
+    borderRadius: 10,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: `${COLORS.primary}30`,
+  },
+  lpWarningText: { flex: 1, fontSize: 11, color: COLORS.primary, lineHeight: 16 },
   inputRow: {
     flexDirection: 'row',
     alignItems: 'center',
