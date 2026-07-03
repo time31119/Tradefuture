@@ -515,54 +515,83 @@ export default function NodeScreen() {
         {data && (
           <View style={styles.lpSection}>
             <View style={styles.sectionHeader}>
-              <FontAwesome6 name="water" size={16} color={COLORS.success} />
+              <View style={styles.sectionIconBox}>
+                <FontAwesome6 name="water" size={14} color={COLORS.success} />
+              </View>
               <Text style={styles.sectionTitle}>LP管理</Text>
+              <View style={styles.lpBadge}>
+                <Text style={styles.lpBadgeText}>锁仓中</Text>
+              </View>
             </View>
+            
             <View style={styles.lpCard}>
-              <View style={styles.lpRow}>
-                <View style={styles.lpRowLeft}>
-                  <FontAwesome6 name="lock" size={12} color={COLORS.textSecondary} />
-                  <Text style={styles.lpLabel}>总锁仓LP</Text>
+              {/* LP Stats Grid */}
+              <View style={styles.lpStatsGrid}>
+                <View style={styles.lpStatItem}>
+                  <Text style={styles.lpStatLabel}>总锁仓LP</Text>
+                  <Text style={styles.lpStatValue}>{data.lpLocked.toLocaleString()}</Text>
+                  <Text style={styles.lpStatUnit}>LP</Text>
                 </View>
-                <Text style={styles.lpValue}>{data.lpLocked.toLocaleString()} LP</Text>
-              </View>
-              <View style={styles.lpRow}>
-                <View style={styles.lpRowLeft}>
-                  <FontAwesome6 name="unlock" size={12} color={COLORS.success} />
-                  <Text style={styles.lpLabel}>可撤回</Text>
+                <View style={styles.lpStatDivider} />
+                <View style={styles.lpStatItem}>
+                  <Text style={styles.lpStatLabel}>可撤回</Text>
+                  <Text style={[styles.lpStatValue, { color: data.lpWithdrawable > 0 ? COLORS.success : COLORS.textSecondary }]}>
+                    {data.lpWithdrawable.toFixed(2)}
+                  </Text>
+                  <Text style={styles.lpStatUnit}>LP</Text>
                 </View>
-                <Text style={[styles.lpValue, { color: data.lpWithdrawable > 0 ? COLORS.success : COLORS.textSecondary }]}>
-                  {data.lpWithdrawable.toFixed(2)} LP
-                </Text>
-              </View>
-              <View style={styles.lpRow}>
-                <View style={styles.lpRowLeft}>
-                  <FontAwesome6 name="chart-line" size={12} color={COLORS.textSecondary} />
-                  <Text style={styles.lpLabel}>解锁进度</Text>
-                </View>
-                <Text style={styles.lpValue}>{data.lpUnlockProgress.current}/{data.lpUnlockProgress.total} 期</Text>
               </View>
 
-              {/* Progress Bar */}
-              <View style={styles.progressBar}>
-                <LinearGradient
-                  colors={COLORS.GRADIENT_PRIMARY}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={[
-                    styles.progressFill,
-                    { width: `${(data.lpUnlockProgress.current / data.lpUnlockProgress.total) * 100}%` }
-                  ]}
-                />
+              {/* Unlock Progress Section */}
+              <View style={styles.unlockSection}>
+                <View style={styles.unlockHeader}>
+                  <Text style={styles.unlockTitle}>解锁进度</Text>
+                  <Text style={styles.unlockPercent}>
+                    {((data.lpUnlockProgress.current / data.lpUnlockProgress.total) * 100).toFixed(0)}%
+                  </Text>
+                </View>
+                
+                {/* Progress Bar */}
+                <View style={styles.progressBar}>
+                  <View style={styles.progressBg} />
+                  <LinearGradient
+                    colors={COLORS.GRADIENT_PRIMARY}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={[
+                      styles.progressFill,
+                      { width: `${(data.lpUnlockProgress.current / data.lpUnlockProgress.total) * 100}%` }
+                    ]}
+                  />
+                </View>
+                
+                <View style={styles.unlockInfo}>
+                  <Text style={styles.unlockInfoText}>
+                    第 {data.lpUnlockProgress.current}/{data.lpUnlockProgress.total} 期
+                  </Text>
+                  <Text style={styles.unlockInfoText}>
+                    每期解锁 {data.lpUnlockPercentPerPeriod}%
+                  </Text>
+                </View>
               </View>
 
-              <View style={styles.lpNextUnlock}>
-                <FontAwesome6 name="clock" size={12} color={COLORS.primary} />
-                <Text style={styles.lpNextText}>
-                  下次解锁: {data.nextUnlockAmount} LP ({data.nextUnlockDays}天后)
-                </Text>
+              {/* Next Unlock Info */}
+              <View style={styles.nextUnlockBox}>
+                <View style={styles.nextUnlockLeft}>
+                  <View style={styles.nextUnlockIcon}>
+                    <FontAwesome6 name="clock" size={14} color={COLORS.primary} />
+                  </View>
+                  <View>
+                    <Text style={styles.nextUnlockTitle}>下次解锁</Text>
+                    <Text style={styles.nextUnlockTime}>{data.nextUnlockDays} 天后</Text>
+                  </View>
+                </View>
+                <View style={styles.nextUnlockRight}>
+                  <Text style={styles.nextUnlockAmount}>{data.nextUnlockAmount} LP</Text>
+                </View>
               </View>
 
+              {/* Withdraw Button */}
               <TouchableOpacity
                 style={[styles.withdrawBtn, data.lpWithdrawable <= 0 && styles.withdrawBtnDisabled]}
                 onPress={() => {
@@ -895,6 +924,14 @@ const styles = StyleSheet.create({
   acquireSection: { marginBottom: 20 },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
   sectionTitle: { fontSize: 16, fontWeight: '600', color: COLORS.textPrimary },
+  sectionIconBox: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: `${COLORS.success}20`,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   methodTabs: { flexDirection: 'row', gap: 10, marginBottom: 12 },
   methodTab: {
     flex: 1,
@@ -957,6 +994,7 @@ const styles = StyleSheet.create({
   lpDetailRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
   lpDetailLabel: { fontSize: 12, color: COLORS.textSecondary },
   lpDetailValue: { fontSize: 12, color: COLORS.textPrimary, fontWeight: '500' },
+  lpDetailHighlight: { fontSize: 16, fontWeight: '700', color: COLORS.primary },
   // LP Confirm Modal
   lpConfirmBox: {
     backgroundColor: COLORS.surface,
@@ -1043,20 +1081,71 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.border,
   },
-  lpRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  lpRowLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  lpLabel: { fontSize: 13, color: COLORS.textSecondary },
-  lpValue: { fontSize: 14, fontWeight: '600', color: COLORS.textPrimary },
-  progressBar: {
-    height: 6,
-    backgroundColor: COLORS.background,
-    borderRadius: 3,
-    overflow: 'hidden',
-    marginBottom: 12,
+  lpBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+    backgroundColor: `${COLORS.success}20`,
   },
-  progressFill: { height: '100%', borderRadius: 3 },
-  lpNextUnlock: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 14 },
-  lpNextText: { fontSize: 12, color: COLORS.textSecondary },
+  lpBadgeText: { fontSize: 10, color: COLORS.success, fontWeight: '600' },
+  lpStatsGrid: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+    paddingVertical: 12,
+    backgroundColor: COLORS.background,
+    borderRadius: 12,
+  },
+  lpStatItem: { flex: 1, alignItems: 'center' },
+  lpStatDivider: { width: 1, height: 30, backgroundColor: COLORS.border },
+  lpStatLabel: { fontSize: 11, color: COLORS.textSecondary, marginBottom: 4 },
+  lpStatValue: { fontSize: 18, fontWeight: '700', color: COLORS.textPrimary },
+  lpStatUnit: { fontSize: 10, color: COLORS.textSecondary, marginTop: 2 },
+  unlockSection: { marginBottom: 16 },
+  unlockHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+  unlockTitle: { fontSize: 13, color: COLORS.textSecondary },
+  unlockPercent: { fontSize: 14, fontWeight: '700', color: COLORS.primary },
+  progressBar: {
+    height: 8,
+    borderRadius: 4,
+    overflow: 'hidden',
+    marginBottom: 8,
+    position: 'relative',
+  },
+  progressBg: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: COLORS.background,
+    borderRadius: 4,
+  },
+  progressFill: { height: '100%', borderRadius: 4 },
+  unlockInfo: { flexDirection: 'row', justifyContent: 'space-between' },
+  unlockInfoText: { fontSize: 11, color: COLORS.textSecondary },
+  nextUnlockBox: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 12,
+    backgroundColor: `${COLORS.primary}10`,
+    borderRadius: 12,
+    marginBottom: 14,
+  },
+  nextUnlockLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  nextUnlockIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: `${COLORS.primary}20`,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  nextUnlockTitle: { fontSize: 11, color: COLORS.textSecondary },
+  nextUnlockTime: { fontSize: 13, fontWeight: '600', color: COLORS.textPrimary },
+  nextUnlockRight: { alignItems: 'flex-end' },
+  nextUnlockAmount: { fontSize: 16, fontWeight: '700', color: COLORS.primary },
   withdrawBtn: {
     flexDirection: 'row',
     justifyContent: 'center',
