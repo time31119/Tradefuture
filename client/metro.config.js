@@ -32,6 +32,35 @@ config.resolver.blockList = [
   /.*node_modules\/\.pnpm\/.*_tmp_\d+.*/,
 ];
 
+// 处理 wagmi 的可选依赖 accounts
+config.resolver.extraNodeModules = {
+  ...config.resolver.extraNodeModules,
+  accounts: require.resolve('./empty-module.js'),
+};
+
+// 添加空的 accounts 模块（wagmi 可选依赖）
+const fs = require('fs');
+const emptyModulePath = require('path').join(__dirname, 'empty-module.js');
+if (!fs.existsSync(emptyModulePath)) {
+  fs.writeFileSync(emptyModulePath, 'module.exports = {};');
+}
+
+// 使用 resolveRequest 来处理可选依赖
+const originalResolveRequest = config.resolver.resolveRequest;
+config.resolver.resolveRequest = (context, moduleName, platform) => {
+  // 处理 wagmi 的可选依赖
+  if (moduleName === 'accounts') {
+    return {
+      type: 'sourceFile',
+      filePath: require.resolve('./empty-module.js'),
+    };
+  }
+  if (originalResolveRequest) {
+    return originalResolveRequest(context, moduleName, platform);
+  }
+  return context.resolveRequest(context, moduleName, platform);
+};
+
 const BACKEND_TARGET = 'http://localhost:9091';
 
 const apiProxy = createProxyMiddleware({
