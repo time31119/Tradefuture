@@ -4,9 +4,13 @@ import rateLimit from "express-rate-limit";
 import { initDatabase, getDb } from "./db";
 import { authenticate, generateToken, optionalAuth } from "./auth";
 import { validate, schemas } from "./validation";
+import { startScheduledCheck, checkAndGrantRoles, getUserMetrics } from "./autoGrant";
 
 // Initialize database
 initDatabase();
+
+// Start scheduled role check (every hour)
+startScheduledCheck();
 
 const app = express();
 app.set('trust proxy', 1);
@@ -38,6 +42,63 @@ app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.get('/api/v1/health', (req, res) => {
   console.log('Health check success');
   res.status(200).json({ status: 'ok' });
+});
+
+// ==================== Auto Grant Role API ====================
+
+// Get user metrics
+app.get('/api/v1/user-metrics/:address', (req, res) => {
+  const { address } = req.params;
+  const metrics = getUserMetrics(address);
+  res.json({ success: true, data: metrics });
+});
+
+// Manually trigger role check for a user
+app.post('/api/v1/user-metrics/:address/check', (req, res) => {
+  const { address } = req.params;
+  const result = checkAndGrantRoles(address);
+  res.json({ success: true, data: result });
+});
+
+// Get auto grant stats
+app.get('/api/v1/auto-grant/stats', (req, res) => {
+  const db = getDb();
+  
+  const totalUsers = db.prepare('SELECT COUNT(*) as count FROM user_metrics').get() as any;
+  const marketMakers = db.prepare('SELECT COUNT(*) as count FROM user_metrics WHERE is_market_maker = 1').get() as any;
+  const nodePartners = db.prepare('SELECT COUNT(*) as count FROM user_metrics WHERE node_count > 0').get() as any;
+  const recentGrants = db.prepare('SELECT * FROM role_grant_logs ORDER BY granted_at DESC LIMIT 10').all();
+  
+  res.json({
+    success: true,
+    data: {
+      totalUsers: totalUsers.count,
+      marketMakers: marketMakers.count,
+      nodePartners: nodePartners.count,
+      recentGrants,
+    },
+  });
+});
+
+// Get role grant logs
+app.get('/api/v1/role-grant-logs', (req, res) => {
+  const { role_type, limit: limitParam } = req.query;
+  const limit = parseInt(limitParam as string) || 50;
+  
+  const db = getDb();
+  let query = 'SELECT * FROM role_grant_logs';
+  const params: any[] = [];
+  
+  if (role_type) {
+    query += ' WHERE role_type = ?';
+    params.push(role_type);
+  }
+  
+  query += ' ORDER BY granted_at DESC LIMIT ?';
+  params.push(limit);
+  
+  const logs = db.prepare(query).all(...params);
+  res.json({ success: true, data: logs });
 });
 
 // ==================== BTC Price API ====================

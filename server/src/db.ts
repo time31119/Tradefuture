@@ -119,6 +119,47 @@ export function initDatabase() {
     )
   `);
 
+  // User metrics table for automatic role eligibility
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS user_metrics (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_address TEXT UNIQUE NOT NULL,
+      -- Referral metrics
+      direct_referrals INTEGER DEFAULT 0,
+      total_referral_volume REAL DEFAULT 0,
+      referral_earnings REAL DEFAULT 0,
+      -- VIP metrics
+      vip_activation_earnings REAL DEFAULT 0,
+      level_earnings REAL DEFAULT 0,
+      -- On-chain metrics
+      tft_burned REAL DEFAULT 0,
+      lp_added REAL DEFAULT 0,
+      -- Role status
+      is_market_maker INTEGER DEFAULT 0,
+      market_maker_granted_at TEXT,
+      market_maker_method TEXT,
+      node_count INTEGER DEFAULT 0,
+      node_granted_at TEXT,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_address) REFERENCES users(address)
+    )
+  `);
+
+  // Role grant logs table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS role_grant_logs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_address TEXT NOT NULL,
+      role_type TEXT NOT NULL,
+      granted_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      method TEXT,
+      details TEXT,
+      auto_granted INTEGER DEFAULT 1,
+      FOREIGN KEY (user_address) REFERENCES users(address)
+    )
+  `);
+
   // Insert default user if not exists
   const defaultUser = db.prepare('SELECT * FROM users WHERE address = ?').get('0x7a3B8cDeF9a1B2c3D4e5F6a7B8c9D0e1F2a3B4c5');
   if (!defaultUser) {
@@ -161,6 +202,67 @@ export function updateUser(address: string, data: Record<string, unknown>) {
 // Get database instance
 export function getDb() {
   return db;
+}
+
+// User metrics helper functions
+export function getUserMetrics(userAddress: string) {
+  return db.prepare('SELECT * FROM user_metrics WHERE user_address = ?').get(userAddress) as UserMetrics | undefined;
+}
+
+export function initUserMetrics(userAddress: string) {
+  const existing = getUserMetrics(userAddress);
+  if (!existing) {
+    db.prepare(`
+      INSERT INTO user_metrics (user_address) VALUES (?)
+    `).run(userAddress);
+  }
+  return getUserMetrics(userAddress);
+}
+
+export function updateUserMetrics(userAddress: string, data: Partial<UserMetrics>) {
+  initUserMetrics(userAddress);
+  const keys = Object.keys(data);
+  const values = Object.values(data);
+  const setClause = keys.map(key => `${key} = ?`).join(', ');
+  return db.prepare(`UPDATE user_metrics SET ${setClause}, updated_at = CURRENT_TIMESTAMP WHERE user_address = ?`).run(...values, userAddress);
+}
+
+export function incrementUserMetrics(userAddress: string, field: string, amount: number) {
+  initUserMetrics(userAddress);
+  return db.prepare(`UPDATE user_metrics SET ${field} = ${field} + ?, updated_at = CURRENT_TIMESTAMP WHERE user_address = ?`).run(amount, userAddress);
+}
+
+export function logRoleGrant(userAddress: string, roleType: string, method: string, details: string, autoGranted: boolean = true) {
+  return db.prepare(`
+    INSERT INTO role_grant_logs (user_address, role_type, method, details, auto_granted)
+    VALUES (?, ?, ?, ?, ?)
+  `).run(userAddress, roleType, method, details, autoGranted ? 1 : 0);
+}
+
+export function getRoleGrantLogs(userAddress: string, roleType?: string) {
+  if (roleType) {
+    return db.prepare('SELECT * FROM role_grant_logs WHERE user_address = ? AND role_type = ? ORDER BY granted_at DESC').all(userAddress, roleType);
+  }
+  return db.prepare('SELECT * FROM role_grant_logs WHERE user_address = ? ORDER BY granted_at DESC').all(userAddress);
+}
+
+export interface UserMetrics {
+  id: number;
+  user_address: string;
+  direct_referrals: number;
+  total_referral_volume: number;
+  referral_earnings: number;
+  vip_activation_earnings: number;
+  level_earnings: number;
+  tft_burned: number;
+  lp_added: number;
+  is_market_maker: number;
+  market_maker_granted_at: string | null;
+  market_maker_method: string | null;
+  node_count: number;
+  node_granted_at: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export default db;
