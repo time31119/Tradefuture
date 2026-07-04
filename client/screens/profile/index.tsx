@@ -25,6 +25,7 @@ import { captureRef } from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as ImagePicker from 'expo-image-picker';
+import * as MediaLibrary from 'expo-media-library';
 
 const EXPO_PUBLIC_BACKEND_BASE_URL = process.env.EXPO_PUBLIC_BACKEND_BASE_URL || 'http://localhost:9091';
 
@@ -241,11 +242,21 @@ export default function ProfileScreen() {
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
+        Alert.alert('成功', '海报已下载');
       } else {
         // Mobile: 保存到相册
-        await Sharing.shareAsync(uri);
+        const { status } = await MediaLibrary.requestPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert('权限不足', '请允许访问相册以保存海报');
+          return;
+        }
+        // Copy to a persistent location
+        const docDir = (FileSystem as any).documentDirectory || '/tmp/';
+        const destPath = docDir + `tradefuture-invite-${Date.now()}.png`;
+        await (FileSystem as any).copyAsync({ from: uri, to: destPath });
+        await MediaLibrary.createAssetAsync(destPath);
+        Alert.alert('成功', '海报已保存到相册');
       }
-      Alert.alert('成功', '海报已保存');
     } catch (error) {
       console.error('Save poster error:', error);
       Alert.alert('错误', '保存海报失败');

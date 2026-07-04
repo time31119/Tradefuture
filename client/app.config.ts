@@ -67,6 +67,14 @@ export default ({ config }: ConfigContext): ExpoConfig => {
           "microphonePermission": `TradeFuture DApp需要访问麦克风以录制视频声音。`,
           "recordAudioAndroid": true
         }
+      ],
+      [
+        "expo-media-library",
+        {
+          "photosPermission": `允许TradeFuture DApp访问您的相册，以便保存邀请海报等图片。`,
+          "savePhotosPermission": `允许TradeFuture DApp保存图片到您的相册。`,
+          "isAccessMediaLocationEnabled": true
+        }
       ]
     ],
     "experiments": {

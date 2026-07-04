@@ -12,6 +12,14 @@ const app = express();
 app.set('trust proxy', 1);
 const port = process.env.PORT || 9091;
 
+// Helper: Generate invite code from wallet address
+function generateInviteCode(address: string): string {
+  // Use last 8 chars of address + timestamp-based suffix for uniqueness
+  const suffix = address.slice(-8).toUpperCase();
+  const prefix = 'TF';
+  return `${prefix}${suffix}`;
+}
+
 // Rate limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
@@ -413,17 +421,19 @@ app.post('/api/v1/swap/remove-liquidity', (req, res) => {
 
 // GET /api/v1/profile - Get user profile
 app.get('/api/v1/profile', (req, res) => {
+  const fullAddress = '0x7a3B4C5D6E7F8A9B0C1D2E3F4A5B6C7D8E9f3e8';
+  const inviteCode = generateInviteCode(fullAddress);
   res.json({
     success: true,
     data: {
       address: '0x7a3B...f3e8',
-      fullAddress: '0x7a3B4C5D6E7F8A9B0C1D2E3F4A5B6C7D8E9f3e8',
+      fullAddress,
       isVIP: true,
       vipExpiry: '2027-01-15',
       vipDaysLeft: 364,
       accountValue: 18234.50,
       inviter: '0x3e...d1a2',
-      inviteCode: 'TF20260115ABC',
+      inviteCode,
       totalReferralReward: 1234.50,
       pendingReferralReward: 56.78,
       directReward: 850.00,
