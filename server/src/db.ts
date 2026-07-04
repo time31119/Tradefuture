@@ -160,6 +160,37 @@ export function initDatabase() {
     )
   `);
 
+  // Token metrics table for real-time token data
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS token_metrics (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      initial_supply REAL DEFAULT 11000000,
+      total_burned REAL DEFAULT 0,
+      current_supply REAL DEFAULT 11000000,
+      last_updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  // Burn records table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS burn_records (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      tx_hash TEXT NOT NULL,
+      amount REAL NOT NULL,
+      block_number INTEGER,
+      timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  // Initialize token metrics with default values
+  const existingMetrics = db.prepare('SELECT * FROM token_metrics WHERE id = 1').get();
+  if (!existingMetrics) {
+    db.prepare(`
+      INSERT INTO token_metrics (id, initial_supply, total_burned, current_supply)
+      VALUES (1, 11000000, 150000, 10850000)
+    `).run();
+  }
+
   // Insert default user if not exists
   const defaultUser = db.prepare('SELECT * FROM users WHERE address = ?').get('0x7a3B8cDeF9a1B2c3D4e5F6a7B8c9D0e1F2a3B4c5');
   if (!defaultUser) {
@@ -263,6 +294,42 @@ export interface UserMetrics {
   node_granted_at: string | null;
   created_at: string;
   updated_at: string;
+}
+
+// Token metrics helper functions
+export interface TokenMetrics {
+  id: number;
+  initial_supply: number;
+  total_burned: number;
+  current_supply: number;
+  last_updated_at: string;
+}
+
+export function getTokenMetrics(): TokenMetrics {
+  return db.prepare('SELECT * FROM token_metrics WHERE id = 1').get() as TokenMetrics;
+}
+
+export function updateTokenMetrics(totalBurned: number) {
+  const initialSupply = 11000000;
+  const currentSupply = initialSupply - totalBurned;
+  return db.prepare(`
+    UPDATE token_metrics 
+    SET total_burned = ?, current_supply = ?, last_updated_at = CURRENT_TIMESTAMP 
+    WHERE id = 1
+  `).run(totalBurned, currentSupply);
+}
+
+export function recordBurnEvent(txHash: string, amount: number, blockNumber?: number) {
+  db.prepare(`
+    INSERT INTO burn_records (tx_hash, amount, block_number) VALUES (?, ?, ?)
+  `).run(txHash, amount, blockNumber);
+  
+  // Update token metrics
+  const metrics = getTokenMetrics();
+  const newTotalBurned = metrics.total_burned + amount;
+  updateTokenMetrics(newTotalBurned);
+  
+  return { txHash, amount, newTotalBurned };
 }
 
 export default db;

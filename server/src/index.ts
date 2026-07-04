@@ -1,7 +1,7 @@
 import express from "express";
 import cors from "cors";
 import rateLimit from "express-rate-limit";
-import { initDatabase, getDb } from "./db";
+import { initDatabase, getDb, getTokenMetrics, updateTokenMetrics, recordBurnEvent } from "./db";
 import { authenticate, generateToken, optionalAuth } from "./auth";
 import { validate, schemas } from "./validation";
 import { startScheduledCheck, checkAndGrantRoles, getUserMetrics } from "./autoGrant";
@@ -616,17 +616,25 @@ app.post('/api/v1/wallet/connect', (req, res) => {
 
 // ==================== Token Economics API ====================
 
-// GET /api/v1/token/info - Token information
+// GET /api/v1/token/info - Token information (real-time data from database)
 app.get('/api/v1/token/info', (req, res) => {
+  // Get real-time token metrics from database
+  const metrics = getTokenMetrics();
+  
+  // Calculate current supply from initial - burned
+  const initialSupply = metrics?.initial_supply || 11000000;
+  const totalBurned = metrics?.total_burned || 0;
+  const currentSupply = initialSupply - totalBurned;
+  
   res.json({
     success: true,
     data: {
       name: 'TradeFuture Token',
       symbol: 'TFT',
       chain: 'BSC (BEP-20)',
-      initialSupply: 11000000,
-      currentSupply: 10850000, // Simulated current supply
-      totalBurned: 150000,
+      initialSupply: initialSupply,
+      currentSupply: currentSupply, // Real-time: initial - burned
+      totalBurned: totalBurned, // Real-time from database
       taxRate: 0.06, // 6% transaction tax
       taxDistribution: {
         nodeDividends: 0.03, // 3%
@@ -648,13 +656,19 @@ app.get('/api/v1/token/info', (req, res) => {
         locked: 800000,
       },
       tftPrice: 0.01, // USDT
+      lastUpdated: metrics?.last_updated_at || new Date().toISOString(),
     },
   });
 });
 
-// GET /api/v1/token/burn-info - Burn mechanism info
+// GET /api/v1/token/burn-info - Burn mechanism info (real-time data)
 app.get('/api/v1/token/burn-info', (req, res) => {
-  const currentSupply = 10850000;
+  // Get real-time token metrics from database
+  const metrics = getTokenMetrics();
+  const initialSupply = metrics?.initial_supply || 11000000;
+  const totalBurned = metrics?.total_burned || 0;
+  const currentSupply = initialSupply - totalBurned;
+  
   let currentTier = 1;
   let burnRate = 0;
   
@@ -681,6 +695,46 @@ app.get('/api/v1/token/burn-info', (req, res) => {
       targetSupply: 50000,
       nextBurnTime: Date.now() + 3600000, // 1 hour from now
     },
+  });
+});
+
+// POST /api/v1/token/record-burn - Record a burn event (updates real-time metrics)
+app.post('/api/v1/token/record-burn', (req, res) => {
+  const { txHash, amount, blockNumber } = req.body;
+  
+  if (!txHash || !amount || amount <= 0) {
+    return res.status(400).json({ success: false, message: 'Invalid burn data' });
+  }
+  
+  // Record the burn event and update metrics
+  recordBurnEvent(txHash, amount, blockNumber);
+  
+  // Get updated metrics
+  const metrics = getTokenMetrics();
+  
+  res.json({
+    success: true,
+    data: {
+      txHash,
+      amount,
+      newTotalBurned: metrics.total_burned,
+      newCurrentSupply: metrics.current_supply,
+    },
+  });
+});
+
+// GET /api/v1/token/burn-history - Get burn history
+app.get('/api/v1/token/burn-history', (req, res) => {
+  const database = getDb();
+  const records = database.prepare(`
+    SELECT * FROM burn_records 
+    ORDER BY timestamp DESC 
+    LIMIT 50
+  `).all();
+  
+  res.json({
+    success: true,
+    data: records,
   });
 });
 
