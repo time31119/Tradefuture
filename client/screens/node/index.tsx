@@ -554,7 +554,9 @@ export default function NodeScreen() {
                 <View style={styles.unlockHeader}>
                   <Text style={styles.unlockTitle}>解锁进度</Text>
                   <Text style={styles.unlockPercent}>
-                    {((data.lpUnlockProgress.current / data.lpUnlockProgress.total) * 100).toFixed(0)}%
+                    {data.lpUnlockProgress.total > 0
+                      ? ((data.lpUnlockProgress.current / data.lpUnlockProgress.total) * 100).toFixed(0)
+                      : '0'}%
                   </Text>
                 </View>
                 
@@ -567,7 +569,9 @@ export default function NodeScreen() {
                     end={{ x: 1, y: 0 }}
                     style={[
                       styles.progressFill,
-                      { width: `${(data.lpUnlockProgress.current / data.lpUnlockProgress.total) * 100}%` }
+                      { width: data.lpUnlockProgress.total > 0
+                        ? `${(data.lpUnlockProgress.current / data.lpUnlockProgress.total) * 100}%`
+                        : '0%' }
                     ]}
                   />
                 </View>
