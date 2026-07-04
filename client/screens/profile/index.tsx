@@ -51,6 +51,8 @@ interface ProfileData {
     level: number;
     volume: number;
     contribution: number;
+    isDirect: boolean;
+    joinDate: string;
   }>;
 }
 
@@ -64,6 +66,8 @@ export default function ProfileScreen() {
   const [showTutorial, setShowTutorial] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showTeamModal, setShowTeamModal] = useState(false);
+  const [teamFilter, setTeamFilter] = useState<'all' | 'direct' | 'indirect'>('all');
+  const [teamSort, setTeamSort] = useState<'volume' | 'contribution' | 'level' | 'date'>('volume');
   const [isSavingPoster, setIsSavingPoster] = useState(false);
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
   const [showFullAddress, setShowFullAddress] = useState(false);
@@ -160,7 +164,7 @@ export default function ProfileScreen() {
 
       if (!result.canceled && result.assets[0]) {
         setAvatarUri(result.assets[0].uri);
-        // TODO: Upload to server and update profile
+        // NOTE: Avatar upload to server will be integrated later
       }
     } catch (error) {
       console.error('Pick avatar error:', error);
@@ -594,6 +598,118 @@ export default function ProfileScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Team Members Modal */}
+      <Modal visible={showTeamModal} transparent animationType="slide" onRequestClose={() => setShowTeamModal(false)}>
+        <View style={styles.teamModalOverlay}>
+          <View style={styles.teamModal}>
+            {/* Header */}
+            <View style={styles.teamModalHeader}>
+              <Text style={styles.teamModalTitle}>团队成员</Text>
+              <TouchableOpacity onPress={() => setShowTeamModal(false)}>
+                <FontAwesome6 name="xmark" size={20} color={COLORS.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Stats Summary */}
+            <View style={styles.teamStatsRow}>
+              <View style={styles.teamStatItem}>
+                <Text style={styles.teamStatValue}>{profile?.teamMembers.length || 0}</Text>
+                <Text style={styles.teamStatLabel}>总成员</Text>
+              </View>
+              <View style={styles.teamStatDivider} />
+              <View style={styles.teamStatItem}>
+                <Text style={styles.teamStatValue}>{profile?.teamMembers.filter(m => m.isDirect).length || 0}</Text>
+                <Text style={styles.teamStatLabel}>直推</Text>
+              </View>
+              <View style={styles.teamStatDivider} />
+              <View style={styles.teamStatItem}>
+                <Text style={styles.teamStatValue}>${(profile?.teamMembers.reduce((s, m) => s + m.volume, 0) || 0).toLocaleString()}</Text>
+                <Text style={styles.teamStatLabel}>总预测额</Text>
+              </View>
+              <View style={styles.teamStatDivider} />
+              <View style={styles.teamStatItem}>
+                <Text style={styles.teamStatValue}>${(profile?.teamMembers.reduce((s, m) => s + m.contribution, 0) || 0).toFixed(0)}</Text>
+                <Text style={styles.teamStatLabel}>总贡献</Text>
+              </View>
+            </View>
+
+            {/* Filter Tabs */}
+            <View style={styles.teamFilterRow}>
+              {([['all', '全部'], ['direct', '直推'], ['indirect', '间推']] as const).map(([key, label]) => (
+                <TouchableOpacity
+                  key={key}
+                  style={[styles.teamFilterTab, teamFilter === key && styles.teamFilterTabActive]}
+                  onPress={() => setTeamFilter(key)}
+                >
+                  <Text style={[styles.teamFilterTabText, teamFilter === key && styles.teamFilterTabTextActive]}>
+                    {label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* Sort Options */}
+            <View style={styles.teamSortRow}>
+              <Text style={styles.teamSortLabel}>排序：</Text>
+              {([['volume', '预测额'], ['contribution', '贡献'], ['level', '等级'], ['date', '时间']] as const).map(([key, label]) => (
+                <TouchableOpacity
+                  key={key}
+                  style={[styles.teamSortBtn, teamSort === key && styles.teamSortBtnActive]}
+                  onPress={() => setTeamSort(key)}
+                >
+                  <Text style={[styles.teamSortBtnText, teamSort === key && styles.teamSortBtnTextActive]}>
+                    {label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* Member List */}
+            <ScrollView style={styles.teamListScroll} showsVerticalScrollIndicator={false}>
+              {profile?.teamMembers
+                .filter(m => teamFilter === 'all' || (teamFilter === 'direct' ? m.isDirect : !m.isDirect))
+                .sort((a, b) => {
+                  if (teamSort === 'volume') return b.volume - a.volume;
+                  if (teamSort === 'contribution') return b.contribution - a.contribution;
+                  if (teamSort === 'level') return b.level - a.level;
+                  return new Date(b.joinDate).getTime() - new Date(a.joinDate).getTime();
+                })
+                .map((member) => (
+                  <View key={member.id} style={styles.teamModalItem}>
+                    <View style={styles.teamModalItemLeft}>
+                      <View style={[styles.teamModalAvatar, member.isDirect ? styles.teamDirectAvatar : styles.teamIndirectAvatar]}>
+                        <Text style={styles.teamModalAvatarText}>L{member.level}</Text>
+                      </View>
+                      <View style={styles.teamModalInfo}>
+                        <View style={styles.teamModalAddrRow}>
+                          <Text style={styles.teamModalAddress}>{member.address}</Text>
+                          <View style={[styles.teamBadge, member.isDirect ? styles.teamBadgeDirect : styles.teamBadgeIndirect]}>
+                            <Text style={[styles.teamBadgeText, member.isDirect ? styles.teamBadgeTextDirect : styles.teamBadgeTextIndirect]}>
+                              {member.isDirect ? '直推' : '间推'}
+                            </Text>
+                          </View>
+                        </View>
+                        <Text style={styles.teamModalDate}>加入时间：{member.joinDate}</Text>
+                      </View>
+                    </View>
+                    <View style={styles.teamModalItemRight}>
+                      <Text style={styles.teamModalVolume}>${member.volume.toLocaleString()}</Text>
+                      <Text style={styles.teamModalContribution}>+${member.contribution.toFixed(2)}</Text>
+                    </View>
+                  </View>
+                ))}
+            </ScrollView>
+
+            {/* Footer */}
+            <View style={styles.teamModalFooter}>
+              <TouchableOpacity style={styles.teamModalCloseBtn} onPress={() => setShowTeamModal(false)}>
+                <Text style={styles.teamModalCloseText}>关闭</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </Screen>
   );
 }
@@ -907,4 +1023,146 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.primary,
   },
   posterShareText: { fontSize: 15, fontWeight: '700', color: COLORS.background },
+  // Team Modal
+  teamModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.8)',
+    justifyContent: 'flex-end',
+    padding: 0,
+  },
+  teamModal: {
+    width: '100%',
+    maxHeight: '85%',
+    backgroundColor: COLORS.surface,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    overflow: 'hidden',
+  },
+  teamModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  teamModalTitle: { fontSize: 18, fontWeight: '800', color: COLORS.textPrimary },
+  teamStatsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    padding: 16,
+    marginHorizontal: 16,
+    marginTop: 12,
+    borderRadius: 14,
+    backgroundColor: 'rgba(245,166,35,0.06)',
+    borderWidth: 1,
+    borderColor: 'rgba(245,166,35,0.12)',
+  },
+  teamStatItem: { alignItems: 'center' },
+  teamStatValue: { fontSize: 16, fontWeight: '800', color: COLORS.primary, fontFamily: 'monospace' },
+  teamStatLabel: { fontSize: 10, color: COLORS.textSecondary, marginTop: 2 },
+  teamStatDivider: { width: 1, height: 28, backgroundColor: COLORS.border },
+  teamFilterRow: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    gap: 8,
+  },
+  teamFilterTab: {
+    paddingHorizontal: 16,
+    paddingVertical: 7,
+    borderRadius: 20,
+    backgroundColor: COLORS.surfaceElevated,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  teamFilterTabActive: {
+    backgroundColor: 'rgba(245,166,35,0.12)',
+    borderColor: COLORS.primary,
+  },
+  teamFilterTabText: { fontSize: 13, fontWeight: '600', color: COLORS.textSecondary },
+  teamFilterTabTextActive: { color: COLORS.primary },
+  teamSortRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 6,
+    gap: 6,
+  },
+  teamSortLabel: { fontSize: 12, color: COLORS.textSecondary },
+  teamSortBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  teamSortBtnActive: {
+    backgroundColor: 'rgba(245,166,35,0.1)',
+  },
+  teamSortBtnText: { fontSize: 12, color: COLORS.textSecondary, fontWeight: '500' },
+  teamSortBtnTextActive: { color: COLORS.primary, fontWeight: '700' },
+  teamListScroll: {
+    maxHeight: 340,
+    paddingHorizontal: 16,
+    marginTop: 6,
+  },
+  teamModalItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.05)',
+  },
+  teamModalItemLeft: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
+  teamModalAvatar: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  teamDirectAvatar: {
+    backgroundColor: 'rgba(245,166,35,0.15)',
+  },
+  teamIndirectAvatar: {
+    backgroundColor: 'rgba(99,102,241,0.15)',
+  },
+  teamModalAvatarText: { fontSize: 11, fontWeight: '800', color: COLORS.primary },
+  teamModalInfo: { flex: 1 },
+  teamModalAddrRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  teamModalAddress: { fontSize: 13, color: COLORS.textPrimary, fontFamily: 'monospace' },
+  teamBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 4,
+  },
+  teamBadgeDirect: {
+    backgroundColor: 'rgba(245,166,35,0.12)',
+  },
+  teamBadgeIndirect: {
+    backgroundColor: 'rgba(99,102,241,0.12)',
+  },
+  teamBadgeText: { fontSize: 9, fontWeight: '700' },
+  teamBadgeTextDirect: { color: COLORS.primary },
+  teamBadgeTextIndirect: { color: '#818cf8' },
+  teamModalDate: { fontSize: 10, color: COLORS.textSecondary, marginTop: 2 },
+  teamModalItemRight: { alignItems: 'flex-end' },
+  teamModalVolume: { fontSize: 14, fontWeight: '700', color: COLORS.textPrimary, fontFamily: 'monospace' },
+  teamModalContribution: { fontSize: 11, color: COLORS.success, marginTop: 2 },
+  teamModalFooter: {
+    padding: 16,
+    paddingTop: 8,
+  },
+  teamModalCloseBtn: {
+    paddingVertical: 14,
+    borderRadius: 14,
+    backgroundColor: COLORS.surfaceElevated,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    alignItems: 'center',
+  },
+  teamModalCloseText: { fontSize: 15, fontWeight: '700', color: COLORS.textSecondary },
 });
