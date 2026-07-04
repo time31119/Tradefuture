@@ -150,7 +150,7 @@ export default function TokenomicsScreen() {
     fetchData();
   };
 
-  if (loading) {
+  if (loading || !tokenInfo || !burnInfo || !vipInfo || !nodeInfo || !marketMakerInfo) {
     return (
       <Screen>
         <View style={styles.loadingContainer}>
