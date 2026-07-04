@@ -773,9 +773,9 @@ app.get('/api/v1/market-maker/info', (req, res) => {
         },
       },
       benefits: {
-        subordinateReward: 0.3, // 0.3% from subordinate predictions
+        subordinatePredictionDividend: 0.3, // 0.3% from subordinate predictions
         taxDividend: 1, // 1% of transaction tax
-        vipFeeDividend: 1, // 1% of VIP activation fee
+        vipActivationDividend: 1, // 1% of VIP activation fee
       },
     },
   });
