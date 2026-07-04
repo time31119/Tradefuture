@@ -195,22 +195,22 @@ export default function TokenomicsScreen() {
               </View>
               <View style={styles.infoRow}>
                 <Text style={styles.infoLabel}>初始总量</Text>
-                <Text style={styles.infoValue}>{tokenInfo.totalSupply.toLocaleString()} 枚</Text>
+                <Text style={styles.infoValue}>{((tokenInfo as any).initialSupply || tokenInfo.totalSupply || 0).toLocaleString()} 枚</Text>
               </View>
               <View style={styles.infoRow}>
                 <Text style={styles.infoLabel}>当前流通</Text>
-                <Text style={styles.infoValue}>{tokenInfo.currentSupply.toLocaleString()} 枚</Text>
+                <Text style={styles.infoValue}>{(tokenInfo.currentSupply || 0).toLocaleString()} 枚</Text>
               </View>
               <View style={styles.infoRow}>
                 <Text style={styles.infoLabel}>已销毁</Text>
                 <Text style={[styles.infoValue, { color: COLORS.danger }]}>
-                  {tokenInfo.burned.toLocaleString()} 枚
+                  {((tokenInfo as any).totalBurned || tokenInfo.burned || 0).toLocaleString()} 枚
                 </Text>
               </View>
               <View style={styles.infoRow}>
                 <Text style={styles.infoLabel}>买卖滑点</Text>
                 <Text style={[styles.infoValue, { color: COLORS.warning }]}>
-                  {(tokenInfo.taxRate * 100).toFixed(0)}%
+                  {((tokenInfo.taxRate || (tokenInfo as any).taxRate || 0.06) * 100).toFixed(0)}%
                 </Text>
               </View>
             </View>
@@ -277,21 +277,23 @@ export default function TokenomicsScreen() {
               <Text style={styles.sectionTitle}>阶梯式自动销毁</Text>
             </View>
             <View style={styles.card}>
-              {burnInfo.tiers.map((tier, index) => (
+              {burnInfo.tiers && burnInfo.tiers.length > 0 && burnInfo.tiers.map((tier, index) => (
                 <View key={index} style={styles.tierRow}>
                   <View style={styles.tierInfo}>
-                    <Text style={styles.tierPool}>{tier.poolSize}</Text>
-                    <Text style={styles.tierFrequency}>{tier.frequency}</Text>
+                    <Text style={styles.tierPool}>{tier.poolSize || tier.pool || ''}</Text>
+                    <Text style={styles.tierFrequency}>{tier.frequency || ''}</Text>
                   </View>
-                  <Text style={styles.tierRate}>{tier.burnRate}</Text>
+                  <Text style={styles.tierRate}>{tier.burnRate || tier.rate || ''}</Text>
                 </View>
               ))}
-              <View style={styles.burnTarget}>
-                <FontAwesome6 name="bullseye" size={14} color={COLORS.warning} />
-                <Text style={styles.burnTargetText}>
-                  通缩目标：{burnInfo.targetSupply.toLocaleString()} 枚
-                </Text>
-              </View>
+              {burnInfo.targetSupply !== undefined && (
+                <View style={styles.burnTarget}>
+                  <FontAwesome6 name="bullseye" size={14} color={COLORS.warning} />
+                  <Text style={styles.burnTargetText}>
+                    通缩目标：{burnInfo.targetSupply.toLocaleString()} 枚
+                  </Text>
+                </View>
+              )}
             </View>
           </View>
         )}
@@ -311,13 +313,13 @@ export default function TokenomicsScreen() {
               <View style={styles.infoRow}>
                 <Text style={styles.infoLabel}>直推奖励</Text>
                 <Text style={[styles.infoValue, { color: COLORS.success }]}>
-                  {vipInfo.directReferralReward} USDT/人
+                  {vipInfo.feeDistribution?.directReferral ?? 50} USDT/人
                 </Text>
               </View>
               <View style={styles.infoRow}>
                 <Text style={styles.infoLabel}>见点奖励</Text>
                 <Text style={[styles.infoValue, { color: COLORS.success }]}>
-                  {vipInfo.levelReward} USDT/人 × {vipInfo.maxLevels}级
+                  {vipInfo.levelRewards?.rewardPerLevel ?? 1} USDT/人 × {vipInfo.levelRewards?.maxLevels ?? 20}级
                 </Text>
               </View>
             </View>
@@ -421,12 +423,20 @@ export default function TokenomicsScreen() {
             </View>
             <View style={styles.card}>
               <Text style={styles.subsectionTitle}>申请条件（满足其一）</Text>
-              {marketMakerInfo.qualificationMethods.map((method, index) => (
+              {marketMakerInfo.qualification && marketMakerInfo.qualification.map((method, index) => (
                 <View key={index} style={styles.mmMethodRow}>
                   <View style={styles.mmMethodBadge}>
                     <Text style={styles.mmMethodBadgeText}>方式{index + 1}</Text>
                   </View>
-                  <Text style={styles.mmMethodText}>{method.condition}</Text>
+                  <Text style={styles.mmMethodText}>{method.condition || method}</Text>
+                </View>
+              ))}
+              {marketMakerInfo.qualificationMethods && marketMakerInfo.qualificationMethods.map((method, index) => (
+                <View key={index} style={styles.mmMethodRow}>
+                  <View style={styles.mmMethodBadge}>
+                    <Text style={styles.mmMethodBadgeText}>方式{index + 1}</Text>
+                  </View>
+                  <Text style={styles.mmMethodText}>{method.condition || method}</Text>
                 </View>
               ))}
               <View style={styles.mmInfoRow}>
