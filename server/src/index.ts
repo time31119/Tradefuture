@@ -258,6 +258,9 @@ app.get('/api/v1/predictions', (req, res) => {
       participationCount: 1,
       maxParticipation: 1,
       isVIP: false,
+      insurancePoolBalance: 125678,
+      roundInsuranceAmount: 234,
+      usdtBalance: 1000,
     },
   });
 });

@@ -43,7 +43,7 @@ interface PredictionData {
   maxParticipation: number;
   isVIP: boolean;
   insurancePoolBalance: number;
-  currentRoundInsurance: number;
+  roundInsuranceAmount: number;
   usdtBalance: number;
 }
 
@@ -520,7 +520,7 @@ export default function PredictScreen() {
             </View>
             <View style={styles.insurancePoolRow}>
               <Text style={styles.insurancePoolLabel}>本轮注入</Text>
-              <Text style={styles.insurancePoolValueHighlight}>{data.currentRoundInsurance} TFT</Text>
+              <Text style={styles.insurancePoolValueHighlight}>{data.roundInsuranceAmount} TFT</Text>
             </View>
           </View>
         )}
