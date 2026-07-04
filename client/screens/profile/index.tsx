@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -19,6 +19,10 @@ import { useWallet } from '@/contexts/WalletContext';
 import { useFocusEffect } from 'expo-router';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
 import { COLORS } from '@/utils/theme';
+import QRCode from 'react-native-qrcode-svg';
+import { captureRef } from 'react-native-view-shot';
+import * as Sharing from 'expo-sharing';
+import * as FileSystem from 'expo-file-system/legacy';
 
 const EXPO_PUBLIC_BACKEND_BASE_URL = process.env.EXPO_PUBLIC_BACKEND_BASE_URL || 'http://localhost:9091';
 
@@ -54,6 +58,8 @@ export default function ProfileScreen() {
   const [showTutorial, setShowTutorial] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showTeamModal, setShowTeamModal] = useState(false);
+  const [isSavingPoster, setIsSavingPoster] = useState(false);
+  const posterRef = useRef<View>(null);
 
   const fetchProfile = useCallback(async () => {
     try {
@@ -138,6 +144,35 @@ export default function ProfileScreen() {
       });
     } catch (error) {
       console.error('Share error:', error);
+    }
+  };
+
+  const handleSavePoster = async () => {
+    if (!posterRef.current) return;
+    setIsSavingPoster(true);
+    try {
+      const uri = await captureRef(posterRef, {
+        format: 'png',
+        quality: 1,
+      });
+      if (Platform.OS === 'web') {
+        // Web: 下载图片
+        const link = document.createElement('a');
+        link.href = uri;
+        link.download = `tradefuture-invite-${profile?.inviteCode || 'poster'}.png`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } else {
+        // Mobile: 保存到相册
+        await Sharing.shareAsync(uri);
+      }
+      Alert.alert('成功', '海报已保存');
+    } catch (error) {
+      console.error('Save poster error:', error);
+      Alert.alert('错误', '保存海报失败');
+    } finally {
+      setIsSavingPoster(false);
     }
   };
 
@@ -440,26 +475,55 @@ export default function ProfileScreen() {
               </TouchableOpacity>
             </View>
             <View style={styles.posterContent}>
-              <LinearGradient
-                colors={['#1a1f2e', '#0f1419']}
-                style={styles.posterCard}
-              >
-                <View style={styles.posterLogo}>
-                  <FontAwesome6 name="chart-line" size={32} color={COLORS.primary} />
-                </View>
-                <Text style={styles.posterAppName}>TradeFuture</Text>
-                <Text style={styles.posterSlogan}>去中心化 BTC 预测市场</Text>
-                <View style={styles.posterDivider} />
-                <Text style={styles.posterInviteText}>邀请码</Text>
-                <Text style={styles.posterInviteCode}>{profile?.inviteCode || '--'}</Text>
-                <View style={styles.posterQrPlaceholder}>
-                  <FontAwesome6 name="qrcode" size={80} color={COLORS.textSecondary} />
-                  <Text style={styles.posterQrText}>扫码加入</Text>
-                </View>
-                <Text style={styles.posterFooter}>预测 BTC 价格 · 赢取丰厚奖励</Text>
-              </LinearGradient>
+              <View ref={posterRef} collapsable={false}>
+                <LinearGradient
+                  colors={['#1a1f2e', '#0f1419']}
+                  style={styles.posterCard}
+                >
+                  <View style={styles.posterLogo}>
+                    <FontAwesome6 name="chart-line" size={32} color={COLORS.primary} />
+                  </View>
+                  <Text style={styles.posterAppName}>TradeFuture</Text>
+                  <Text style={styles.posterSlogan}>去中心化 BTC 预测市场</Text>
+                  <View style={styles.posterDivider} />
+                  <Text style={styles.posterInviteText}>邀请码</Text>
+                  <Text style={styles.posterInviteCode}>{profile?.inviteCode || '--'}</Text>
+                  <View style={styles.posterQrContainer}>
+                    {profile?.inviteCode ? (
+                      <View style={styles.qrCodeWrapper}>
+                        <QRCode
+                          value={`tradefuture://invite?code=${profile.inviteCode}`}
+                          size={120}
+                          color="#000000"
+                          backgroundColor="#FFFFFF"
+                        />
+                      </View>
+                    ) : (
+                      <View style={styles.posterQrPlaceholder}>
+                        <FontAwesome6 name="qrcode" size={80} color={COLORS.textSecondary} />
+                      </View>
+                    )}
+                    <Text style={styles.posterQrText}>扫码加入</Text>
+                  </View>
+                  <Text style={styles.posterFooter}>预测 BTC 价格 · 赢取丰厚奖励</Text>
+                </LinearGradient>
+              </View>
             </View>
             <View style={styles.posterActions}>
+              <TouchableOpacity 
+                style={styles.posterSaveBtn} 
+                onPress={handleSavePoster}
+                disabled={isSavingPoster}
+              >
+                {isSavingPoster ? (
+                  <ActivityIndicator size="small" color={COLORS.primary} />
+                ) : (
+                  <>
+                    <FontAwesome6 name="download" size={16} color={COLORS.primary} />
+                    <Text style={styles.posterSaveText}>保存海报</Text>
+                  </>
+                )}
+              </TouchableOpacity>
               <TouchableOpacity style={styles.posterShareBtn} onPress={handleSharePoster}>
                 <FontAwesome6 name="share-nodes" size={16} color={COLORS.background} />
                 <Text style={styles.posterShareText}>分享邀请</Text>
@@ -712,6 +776,19 @@ const styles = StyleSheet.create({
   posterDivider: { width: 40, height: 2, backgroundColor: COLORS.primary, marginBottom: 16 },
   posterInviteText: { fontSize: 12, color: COLORS.textSecondary, marginBottom: 4 },
   posterInviteCode: { fontSize: 24, fontWeight: '800', color: COLORS.primary, fontFamily: 'monospace', marginBottom: 16 },
+  posterQrContainer: {
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  qrCodeWrapper: {
+    width: 140,
+    height: 140,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 10,
+  },
   posterQrPlaceholder: {
     width: 140,
     height: 140,
@@ -723,8 +800,22 @@ const styles = StyleSheet.create({
   },
   posterQrText: { fontSize: 11, color: COLORS.textSecondary, marginTop: 8 },
   posterFooter: { fontSize: 11, color: COLORS.textSecondary },
-  posterActions: { padding: 16, paddingTop: 0 },
+  posterActions: { padding: 16, paddingTop: 0, flexDirection: 'row', gap: 12 },
+  posterSaveBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    borderRadius: 12,
+    backgroundColor: COLORS.surfaceElevated,
+    borderWidth: 1,
+    borderColor: COLORS.primary,
+  },
+  posterSaveText: { fontSize: 15, fontWeight: '700', color: COLORS.primary },
   posterShareBtn: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',

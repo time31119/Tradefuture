@@ -47,7 +47,7 @@ interface TokenInfo {
 }
 
 interface BurnInfo {
-  tiers: Array<{
+  levels: Array<{
     poolSize: string;
     frequency: string;
     burnRate: string;
@@ -58,10 +58,7 @@ interface BurnInfo {
 
 interface VIPInfo {
   activationFee: number;
-  directReferralReward: number;
-  levelReward: number;
-  maxLevels: number;
-  distribution: {
+  feeDistribution: {
     node: number;
     operation: number;
     marketMaker: number;
@@ -70,6 +67,11 @@ interface VIPInfo {
     directReferral: number;
     returnToUser: number;
   };
+  levelRewards: {
+    rewardPerLevel: number;
+    maxLevels: number;
+  };
+  directReferralReward: number;
 }
 
 interface NodeInfo {
@@ -77,22 +79,31 @@ interface NodeInfo {
   lpCost: number;
   nodesPerBurn: number;
   nodesPerLp: number;
-  lpLockupPeriods: number;
-  lpUnlockPerPeriod: number;
-  unlockIntervalDays: number;
+  lpLockupRules: {
+    periods: number;
+    unlockPerPeriod: number;
+    unlockIntervalDays: number;
+  };
   benefits: {
     taxDividend: number;
     vipActivationDividend: number;
   };
+  acquisitionMethods: Array<{
+    method: string;
+    cost: string;
+    nodes: number;
+  }>;
 }
 
 interface MarketMakerInfo {
-  qualificationMethods: Array<{
-    method: string;
-    condition: string;
-  }>;
-  reviewPeriod: string;
-  validity: string;
+  qualification: {
+    methods: Array<{
+      method: string;
+      condition: string;
+    }>;
+    reviewPeriod: string;
+    validity: string;
+  };
   benefits: {
     subordinatePredictionDividend: number;
     taxDividend: number;
@@ -277,7 +288,7 @@ export default function TokenomicsScreen() {
               <Text style={styles.sectionTitle}>阶梯式自动销毁</Text>
             </View>
             <View style={styles.card}>
-              {burnInfo.tiers && burnInfo.tiers.length > 0 && burnInfo.tiers.map((tier, index) => (
+              {burnInfo.levels && burnInfo.levels.length > 0 && burnInfo.levels.map((tier: any, index: number) => (
                 <View key={index} style={styles.tierRow}>
                   <View style={styles.tierInfo}>
                     <Text style={styles.tierPool}>{tier.poolSize || tier.pool || ''}</Text>
@@ -385,15 +396,15 @@ export default function TokenomicsScreen() {
               <Text style={styles.subsectionTitle}>LP 锁仓规则</Text>
               <View style={styles.infoRow}>
                 <Text style={styles.infoLabel}>锁仓周期</Text>
-                <Text style={styles.infoValue}>{nodeInfo.lpLockupPeriods} 期</Text>
+                <Text style={styles.infoValue}>{nodeInfo.lpLockupRules?.periods || 50} 期</Text>
               </View>
               <View style={styles.infoRow}>
                 <Text style={styles.infoLabel}>每期解锁</Text>
-                <Text style={styles.infoValue}>{(nodeInfo.lpUnlockPerPeriod * 100).toFixed(0)}%</Text>
+                <Text style={styles.infoValue}>{((nodeInfo.lpLockupRules?.unlockPerPeriod || 0.02) * 100).toFixed(0)}%</Text>
               </View>
               <View style={styles.infoRow}>
                 <Text style={styles.infoLabel}>解锁间隔</Text>
-                <Text style={styles.infoValue}>每 {nodeInfo.unlockIntervalDays} 天</Text>
+                <Text style={styles.infoValue}>每 {nodeInfo.lpLockupRules?.unlockIntervalDays || 30} 天</Text>
               </View>
             </View>
             <View style={[styles.card, { marginTop: 12 }]}>
@@ -401,13 +412,13 @@ export default function TokenomicsScreen() {
               <View style={styles.infoRow}>
                 <Text style={styles.infoLabel}>滑点分红</Text>
                 <Text style={[styles.infoValue, { color: COLORS.success }]}>
-                  {(nodeInfo.benefits.taxDividend * 100).toFixed(0)}%
+                  {(nodeInfo.benefits?.taxDividend || 0.03) * 100}%
                 </Text>
               </View>
               <View style={styles.infoRow}>
                 <Text style={styles.infoLabel}>VIP激活费分红</Text>
                 <Text style={[styles.infoValue, { color: COLORS.success }]}>
-                  {(nodeInfo.benefits.vipActivationDividend * 100).toFixed(0)}% (${(vipInfo?.activationFee || 100) * nodeInfo.benefits.vipActivationDividend})
+                  {(nodeInfo.benefits?.vipActivationDividend || 0.03) * 100}% (${(vipInfo?.activationFee || 100) * (nodeInfo.benefits?.vipActivationDividend || 0.03)})
                 </Text>
               </View>
             </View>
@@ -423,29 +434,21 @@ export default function TokenomicsScreen() {
             </View>
             <View style={styles.card}>
               <Text style={styles.subsectionTitle}>申请条件（满足其一）</Text>
-              {marketMakerInfo.qualification && marketMakerInfo.qualification.map((method, index) => (
+              {marketMakerInfo.qualification && marketMakerInfo.qualification.methods && marketMakerInfo.qualification.methods.map((method, index) => (
                 <View key={index} style={styles.mmMethodRow}>
                   <View style={styles.mmMethodBadge}>
                     <Text style={styles.mmMethodBadgeText}>方式{index + 1}</Text>
                   </View>
-                  <Text style={styles.mmMethodText}>{method.condition || method}</Text>
-                </View>
-              ))}
-              {marketMakerInfo.qualificationMethods && marketMakerInfo.qualificationMethods.map((method, index) => (
-                <View key={index} style={styles.mmMethodRow}>
-                  <View style={styles.mmMethodBadge}>
-                    <Text style={styles.mmMethodBadgeText}>方式{index + 1}</Text>
-                  </View>
-                  <Text style={styles.mmMethodText}>{method.condition || method}</Text>
+                  <Text style={styles.mmMethodText}>{method.condition}</Text>
                 </View>
               ))}
               <View style={styles.mmInfoRow}>
                 <Text style={styles.mmInfoLabel}>审核周期</Text>
-                <Text style={styles.mmInfoValue}>{marketMakerInfo.reviewPeriod}</Text>
+                <Text style={styles.mmInfoValue}>{marketMakerInfo.qualification?.reviewPeriod}</Text>
               </View>
               <View style={styles.mmInfoRow}>
                 <Text style={styles.mmInfoLabel}>资格有效期</Text>
-                <Text style={styles.mmInfoValue}>{marketMakerInfo.validity}</Text>
+                <Text style={styles.mmInfoValue}>{marketMakerInfo.qualification?.validity}</Text>
               </View>
             </View>
             <View style={[styles.card, { marginTop: 12 }]}>
