@@ -227,21 +227,31 @@ export default function SwapScreen() {
         <View style={styles.balancesCard}>
           <View style={styles.balanceRow}>
             <View style={styles.balanceItem}>
+              <View style={styles.balanceIconWrap}>
+                <Text style={styles.balanceIcon}>💰</Text>
+              </View>
               <Text style={styles.balanceLabel}>TFT</Text>
               <Text style={styles.balanceValue}>{balances?.tftBalance.toLocaleString() || '0'}</Text>
               <Text style={styles.balanceUsd}>≈ ${((balances?.tftBalance || 0) * (balances?.tftPrice || 0.5)).toFixed(2)}</Text>
             </View>
             <View style={styles.balanceDivider} />
             <View style={styles.balanceItem}>
+              <View style={styles.balanceIconWrap}>
+                <Text style={styles.balanceIcon}>💵</Text>
+              </View>
               <Text style={styles.balanceLabel}>USDT</Text>
               <Text style={styles.balanceValue}>{balances?.usdtBalance.toLocaleString() || '0'}</Text>
+              <Text style={styles.balanceUsd}>BEP-20</Text>
             </View>
             <View style={styles.balanceDivider} />
             <View style={styles.balanceItem}>
+              <View style={styles.balanceIconWrap}>
+                <Text style={styles.balanceIcon}>🏦</Text>
+              </View>
               <Text style={styles.balanceLabel}>LP</Text>
               <Text style={styles.balanceValue}>{balances?.lpBalance.toLocaleString() || '0'}</Text>
               <Text style={styles.balanceUsd}>
-                {balances ? `${((balances.lpBalance / balances.totalLP) * 100).toFixed(2)}%` : '0%'}
+                占比 {balances ? `${((balances.lpBalance / balances.totalLP) * 100).toFixed(2)}%` : '0%'}
               </Text>
             </View>
           </View>
@@ -434,18 +444,28 @@ const styles = StyleSheet.create({
   // Balances
   balancesCard: {
     backgroundColor: COLORS.surface,
-    borderRadius: 12,
-    padding: 16,
+    borderRadius: 16,
+    padding: 18,
     borderWidth: 1,
     borderColor: COLORS.border,
     marginBottom: 16,
   },
   balanceRow: { flexDirection: 'row', alignItems: 'center' },
   balanceItem: { flex: 1, alignItems: 'center' },
-  balanceLabel: { fontSize: 11, color: COLORS.textSecondary, marginBottom: 4, fontWeight: '600' },
-  balanceValue: { fontSize: 16, fontWeight: '700', color: COLORS.textPrimary, fontFamily: 'monospace' },
-  balanceUsd: { fontSize: 11, color: COLORS.textSecondary, marginTop: 2 },
-  balanceDivider: { width: 1, height: 36, backgroundColor: COLORS.border },
+  balanceIconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 180, 0, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 6,
+  },
+  balanceIcon: { fontSize: 16 },
+  balanceLabel: { fontSize: 12, color: COLORS.textSecondary, marginBottom: 4, fontWeight: '600', letterSpacing: 0.5 },
+  balanceValue: { fontSize: 18, fontWeight: '800', color: COLORS.textPrimary, fontFamily: 'monospace' },
+  balanceUsd: { fontSize: 11, color: COLORS.textSecondary, marginTop: 3, fontWeight: '500' },
+  balanceDivider: { width: 1, height: 60, backgroundColor: COLORS.border, marginHorizontal: 4 },
   // Swap Card
   swapCard: {
     backgroundColor: COLORS.surface,
