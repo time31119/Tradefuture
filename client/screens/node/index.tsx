@@ -397,9 +397,9 @@ export default function NodeScreen() {
                   预计获得: <Text style={styles.estimateValue}>{estimatedNodes}</Text> 个节点
                 </Text>
                 <TouchableOpacity
-                  style={[styles.acquireBtn, (!isConnected || data?.hasBurned) && styles.acquireBtnDisabled]}
+                  style={[styles.acquireBtn, data?.hasBurned && styles.acquireBtnDisabled]}
                   onPress={handleAcquireNode}
-                  disabled={!isConnected || data?.hasBurned}
+                  disabled={!!data?.hasBurned}
                 >
                   <LinearGradient
                     colors={isConnected && !data?.hasBurned ? COLORS.GRADIENT_PRIMARY : ['#333', '#444']}
@@ -497,9 +497,9 @@ export default function NodeScreen() {
                   预计获得: <Text style={styles.estimateValue}>{estimatedNodes}</Text> 个节点
                 </Text>
                 <TouchableOpacity
-                  style={[styles.acquireBtn, (!isConnected || data?.hasAddedLP) && styles.acquireBtnDisabled]}
+                  style={[styles.acquireBtn, data?.hasAddedLP && styles.acquireBtnDisabled]}
                   onPress={handleAcquireNode}
-                  disabled={!isConnected || data?.hasAddedLP}
+                  disabled={!!data?.hasAddedLP}
                 >
                   <LinearGradient
                     colors={isConnected && !data?.hasAddedLP ? COLORS.GRADIENT_PRIMARY : ['#333', '#444']}
@@ -602,6 +602,10 @@ export default function NodeScreen() {
               <TouchableOpacity
                 style={[styles.withdrawBtn, data.lpWithdrawable <= 0 && styles.withdrawBtnDisabled]}
                 onPress={() => {
+                  if (!isConnected) {
+                    connect();
+                    return;
+                  }
                   if (data.lpWithdrawable > 0) {
                     setWithdrawAmount(data.lpWithdrawable.toString());
                     setShowWithdrawModal(true);
