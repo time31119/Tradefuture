@@ -627,12 +627,12 @@ app.get('/api/v1/token/info', (req, res) => {
       initialSupply: 11000000,
       currentSupply: 10850000, // Simulated current supply
       totalBurned: 150000,
-      taxRate: 6, // 6% transaction tax
+      taxRate: 0.06, // 6% transaction tax
       taxDistribution: {
-        nodeDividends: 3, // 3%
-        operations: 1, // 1%
-        marketMakers: 1, // 1%
-        autoBurn: 1, // 1%
+        nodeDividends: 0.03, // 3%
+        operations: 0.01, // 1%
+        marketMakers: 0.01, // 1%
+        autoBurn: 0.01, // 1%
       },
       burnMechanism: {
         tier1: { threshold: 5000000, rate: 0.5, description: '≥ 5,000,000: 0.5%/小时' },
