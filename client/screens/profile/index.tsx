@@ -11,6 +11,7 @@ import {
   Share,
   Platform,
   Linking,
+  Image,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { FontAwesome6 } from '@expo/vector-icons';
@@ -23,6 +24,7 @@ import QRCode from 'react-native-qrcode-svg';
 import { captureRef } from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system/legacy';
+import * as ImagePicker from 'expo-image-picker';
 
 const EXPO_PUBLIC_BACKEND_BASE_URL = process.env.EXPO_PUBLIC_BACKEND_BASE_URL || 'http://localhost:9091';
 
@@ -33,6 +35,10 @@ interface ProfileData {
   vipExpiry: string;
   vipDaysLeft: number;
   accountValue: number;
+  tftBalance: number;
+  usdtBalance: number;
+  profit24h: number;
+  avatarUrl?: string;
   inviter: string;
   inviteCode: string;
   totalReferralReward: number;
@@ -59,6 +65,8 @@ export default function ProfileScreen() {
   const [showSettings, setShowSettings] = useState(false);
   const [showTeamModal, setShowTeamModal] = useState(false);
   const [isSavingPoster, setIsSavingPoster] = useState(false);
+  const [avatarUri, setAvatarUri] = useState<string | null>(null);
+  const [showFullAddress, setShowFullAddress] = useState(false);
   const posterRef = useRef<View>(null);
 
   const fetchProfile = useCallback(async () => {
@@ -132,6 +140,48 @@ export default function ProfileScreen() {
 
   const handleInvitePoster = () => {
     setShowPoster(true);
+  };
+
+  const handlePickAvatar = async () => {
+    try {
+      // Request permission first
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('权限不足', '需要相册权限才能选择头像');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        setAvatarUri(result.assets[0].uri);
+        // TODO: Upload to server and update profile
+      }
+    } catch (error) {
+      console.error('Pick avatar error:', error);
+    }
+  };
+
+  const handleCopyAddress = async () => {
+    if (!wallet?.address) return;
+    try {
+      if (Platform.OS === 'web') {
+        await navigator.clipboard.writeText(wallet.address);
+        Alert.alert('已复制', '钱包地址已复制到剪贴板');
+      } else {
+        await Share.share({
+          message: wallet.address,
+          title: '钱包地址',
+        });
+      }
+    } catch (error) {
+      console.error('Copy address error:', error);
+    }
   };
 
   const handleSharePoster = async () => {
@@ -245,13 +295,25 @@ export default function ProfileScreen() {
             style={styles.userCardGradient}
           >
             <View style={styles.userHeader}>
-              <View style={styles.avatarContainer}>
-                <FontAwesome6 name="circle-user" size={40} color={COLORS.primary} />
-              </View>
+              <TouchableOpacity style={styles.avatarContainer} onPress={handlePickAvatar}>
+                {avatarUri ? (
+                  <Image source={{ uri: avatarUri }} style={styles.avatarImage} />
+                ) : (
+                  <FontAwesome6 name="circle-user" size={40} color={COLORS.primary} />
+                )}
+                <View style={styles.avatarEditBadge}>
+                  <FontAwesome6 name="camera" size={10} color="#FFFFFF" />
+                </View>
+              </TouchableOpacity>
               <View style={styles.userInfo}>
-                <Text style={styles.userAddress}>
-                  {isConnected ? wallet?.shortAddress : '未连接'}
-                </Text>
+                <TouchableOpacity onPress={handleCopyAddress}>
+                  <Text style={styles.userAddress}>
+                    {isConnected ? wallet?.shortAddress : '未连接'}
+                  </Text>
+                  {isConnected && (
+                    <Text style={styles.copyHint}>点击复制地址</Text>
+                  )}
+                </TouchableOpacity>
                 {profile?.isVIP ? (
                   <View style={styles.vipBadge}>
                     <FontAwesome6 name="crown" size={10} color={COLORS.primary} />
@@ -558,9 +620,29 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(245,166,35,0.1)',
     justifyContent: 'center',
     alignItems: 'center',
+    position: 'relative',
+  },
+  avatarImage: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+  },
+  avatarEditBadge: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: COLORS.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
   },
   userInfo: { flex: 1 },
   userAddress: { fontSize: 16, fontWeight: '700', color: COLORS.textPrimary, fontFamily: 'monospace' },
+  copyHint: { fontSize: 11, color: COLORS.textSecondary, marginTop: 2 },
   vipBadge: {
     flexDirection: 'row',
     alignItems: 'center',
