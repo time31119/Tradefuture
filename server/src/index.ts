@@ -684,6 +684,32 @@ app.get('/api/v1/node/economics', (req, res) => {
   res.json({
     success: true,
     data: {
+      // Direct properties for frontend compatibility
+      burnCost: 100000,
+      nodesPerBurn: 1,
+      lpCost: 50000,
+      nodesPerLp: 1,
+      giftThreshold: 30000,
+      nodesPerGift: 1,
+      // LP Lockup Rules
+      lpLockupRules: {
+        periods: 50,
+        unlockIntervalDays: 30,
+        unlockPerPeriod: 0.02, // 2%
+        totalLocked: 50000,
+        nextUnlock: {
+          amount: 1000,
+          daysUntil: 3,
+        },
+      },
+      // Benefits
+      benefits: {
+        taxDividend: 0.03, // 3% of transaction tax
+        vipActivationDividend: 0.03, // 3% of VIP activation fee
+        predictionLimit: 'unlimited',
+        insurancePayout: 40,
+      },
+      // Legacy structure for reference
       acquisitionMethods: [
         {
           method: 'burn',
