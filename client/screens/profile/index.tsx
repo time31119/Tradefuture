@@ -504,33 +504,21 @@ export default function ProfileScreen() {
           {/* Reward Breakdown */}
           <View style={styles.rewardBreakdown}>
             <View style={styles.rewardBreakdownItem}>
-              <View style={styles.rewardBreakdownIcon}>
-                <FontAwesome6 name="user-plus" size={12} color={COLORS.primary} />
-              </View>
-              <View>
-                <Text style={styles.rewardBreakdownLabel}>直推奖励</Text>
-                <Text style={styles.rewardBreakdownValue}>{(profile?.directReward || 0).toFixed(2)} TFT</Text>
-              </View>
+              <Text style={styles.rewardBreakdownLabel}>直推奖励</Text>
+              <Text style={styles.rewardBreakdownValue}>{(profile?.directReward || 0).toFixed(2)}</Text>
+              <Text style={styles.rewardBreakdownUnit}>TFT</Text>
             </View>
             <View style={styles.rewardBreakdownDivider} />
             <View style={styles.rewardBreakdownItem}>
-              <View style={[styles.rewardBreakdownIcon, { backgroundColor: 'rgba(99,102,241,0.12)' }]}>
-                <FontAwesome6 name="layer-group" size={12} color="#818cf8" />
-              </View>
-              <View>
-                <Text style={styles.rewardBreakdownLabel}>见点奖励</Text>
-                <Text style={styles.rewardBreakdownValue}>{(profile?.levelReward || 0).toFixed(2)} TFT</Text>
-              </View>
+              <Text style={styles.rewardBreakdownLabel}>见点奖励</Text>
+              <Text style={styles.rewardBreakdownValue}>{(profile?.levelReward || 0).toFixed(2)}</Text>
+              <Text style={styles.rewardBreakdownUnit}>TFT</Text>
             </View>
             <View style={styles.rewardBreakdownDivider} />
             <View style={styles.rewardBreakdownItem}>
-              <View style={[styles.rewardBreakdownIcon, { backgroundColor: 'rgba(16,185,129,0.12)' }]}>
-                <FontAwesome6 name="circle-check" size={12} color={COLORS.success} />
-              </View>
-              <View>
-                <Text style={styles.rewardBreakdownLabel}>已领取</Text>
-                <Text style={styles.rewardBreakdownValue}>{(profile?.claimedReward || 0).toFixed(2)} TFT</Text>
-              </View>
+              <Text style={styles.rewardBreakdownLabel}>已领取</Text>
+              <Text style={styles.rewardBreakdownValue}>{(profile?.claimedReward || 0).toFixed(2)}</Text>
+              <Text style={styles.rewardBreakdownUnit}>TFT</Text>
             </View>
           </View>
 
@@ -999,51 +987,46 @@ const styles = StyleSheet.create({
   // Reward Card
   rewardCard: {
     backgroundColor: COLORS.surface,
-    borderRadius: 12,
-    padding: 16,
+    borderRadius: 16,
+    padding: 18,
     borderWidth: 1,
     borderColor: COLORS.border,
     marginBottom: 16,
   },
-  rewardInfo: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 },
-  rewardLabel: { fontSize: 12, color: COLORS.textSecondary, marginBottom: 4 },
-  rewardValue: { fontSize: 20, fontWeight: '700', color: COLORS.primary, fontFamily: 'monospace' },
+  rewardInfo: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 16 },
+  rewardLabel: { fontSize: 11, color: COLORS.textSecondary, marginBottom: 6 },
+  rewardValue: { fontSize: 24, fontWeight: '800', color: COLORS.primary, fontFamily: 'monospace' },
   rewardPending: { alignItems: 'flex-end' },
-  rewardPendingLabel: { fontSize: 11, color: COLORS.textSecondary, marginBottom: 4 },
-  rewardPendingValue: { fontSize: 16, fontWeight: '700', color: COLORS.textPrimary, fontFamily: 'monospace' },
+  rewardPendingLabel: { fontSize: 11, color: COLORS.textSecondary, marginBottom: 6 },
+  rewardPendingValue: { fontSize: 18, fontWeight: '800', color: COLORS.textPrimary, fontFamily: 'monospace' },
   claimRewardBtn: {
     borderWidth: 1,
     borderColor: COLORS.primary,
-    borderRadius: 10,
-    paddingVertical: 12,
+    borderRadius: 12,
+    paddingVertical: 13,
     alignItems: 'center',
   },
-  claimRewardBtnDisabled: { opacity: 0.5 },
+  claimRewardBtnDisabled: { opacity: 0.45 },
   claimRewardBtnConnect: { borderColor: COLORS.primary, backgroundColor: 'rgba(245,166,35,0.08)' },
-  claimRewardText: { fontSize: 13, fontWeight: '700', color: COLORS.primary },
+  claimRewardText: { fontSize: 14, fontWeight: '700', color: COLORS.primary },
   claimRewardTextConnect: { color: COLORS.primary },
   // Reward Breakdown
   rewardBreakdown: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'stretch',
     justifyContent: 'space-around',
-    paddingVertical: 12,
+    paddingVertical: 14,
     marginBottom: 12,
-    borderRadius: 10,
+    borderRadius: 12,
     backgroundColor: 'rgba(255,255,255,0.03)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.05)',
   },
-  rewardBreakdownItem: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  rewardBreakdownIcon: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
-    backgroundColor: 'rgba(245,166,35,0.12)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  rewardBreakdownLabel: { fontSize: 10, color: COLORS.textSecondary },
-  rewardBreakdownValue: { fontSize: 13, fontWeight: '700', color: COLORS.textPrimary, fontFamily: 'monospace' },
-  rewardBreakdownDivider: { width: 1, height: 24, backgroundColor: COLORS.border },
+  rewardBreakdownItem: { flex: 1, alignItems: 'center', gap: 2 },
+  rewardBreakdownLabel: { fontSize: 11, color: COLORS.textSecondary },
+  rewardBreakdownValue: { fontSize: 16, fontWeight: '800', color: COLORS.textPrimary, fontFamily: 'monospace' },
+  rewardBreakdownUnit: { fontSize: 9, color: COLORS.textSecondary, marginTop: -1 },
+  rewardBreakdownDivider: { width: 1, height: 36, backgroundColor: 'rgba(255,255,255,0.08)', alignSelf: 'center' },
   // Last Claim
   lastClaimRow: {
     flexDirection: 'row',

@@ -9,6 +9,7 @@ import { validate, schemas } from "./validation";
 initDatabase();
 
 const app = express();
+app.set('trust proxy', 1);
 const port = process.env.PORT || 9091;
 
 // Rate limiting
