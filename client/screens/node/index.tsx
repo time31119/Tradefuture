@@ -289,9 +289,9 @@ export default function NodeScreen() {
             </View>
           </View>
           <TouchableOpacity
-            style={[styles.claimBtn, (!isConnected || claiming) && styles.claimBtnDisabled]}
+            style={[styles.claimBtn, claiming && styles.claimBtnDisabled]}
             onPress={handleClaimRewards}
-            disabled={!isConnected || claiming}
+            disabled={claiming}
           >
             <LinearGradient
               colors={isConnected ? COLORS.GRADIENT_PRIMARY : ['#333', '#444']}
