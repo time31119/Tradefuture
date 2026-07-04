@@ -43,6 +43,17 @@ interface ProfileData {
   inviteCode: string;
   totalReferralReward: number;
   pendingReferralReward: number;
+  directReward: number;
+  levelReward: number;
+  claimedReward: number;
+  rewardHistory: Array<{
+    id: number;
+    type: 'direct' | 'level';
+    amount: number;
+    from: string;
+    date: string;
+    level?: number;
+  }>;
   directReferrals: number;
   teamVolume: number;
   teamMembers: Array<{
@@ -71,6 +82,8 @@ export default function ProfileScreen() {
   const [isSavingPoster, setIsSavingPoster] = useState(false);
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
   const [showFullAddress, setShowFullAddress] = useState(false);
+  const [showRewardHistory, setShowRewardHistory] = useState(false);
+  const [lastClaimTx, setLastClaimTx] = useState<string | null>(null);
   const posterRef = useRef<View>(null);
 
   const fetchProfile = useCallback(async () => {
@@ -98,7 +111,14 @@ export default function ProfileScreen() {
   );
 
   const handleClaimReferral = async () => {
-    if (!isConnected) return;
+    if (!isConnected) {
+      connect();
+      return;
+    }
+    if (!profile?.pendingReferralReward || profile.pendingReferralReward <= 0) {
+      Alert.alert('提示', '暂无可领取的奖励');
+      return;
+    }
     setClaiming(true);
     try {
       /**
@@ -111,7 +131,11 @@ export default function ProfileScreen() {
       });
       const result = await res.json();
       if (result.success) {
-        Alert.alert('成功', `已领取 ${result.data.claimed} TFT`);
+        setLastClaimTx(result.data.txHash);
+        Alert.alert(
+          '领取成功',
+          `已领取 ${result.data.claimed} TFT\n\n交易哈希：\n${result.data.txHash.slice(0, 10)}...${result.data.txHash.slice(-8)}`
+        );
         fetchProfile();
       }
     } catch (error) {
@@ -463,29 +487,126 @@ export default function ProfileScreen() {
 
         {/* Referral Rewards */}
         <View style={styles.rewardCard}>
+          {/* Main Reward Info */}
           <View style={styles.rewardInfo}>
             <View>
               <Text style={styles.rewardLabel}>累计推荐奖励</Text>
-              <Text style={styles.rewardValue}>{profile?.totalReferralReward?.toFixed(2) || '0'} TFT</Text>
+              <Text style={styles.rewardValue}>{(profile?.totalReferralReward || 0).toFixed(2)} TFT</Text>
             </View>
             <View style={styles.rewardPending}>
               <Text style={styles.rewardPendingLabel}>待领取</Text>
-              <Text style={styles.rewardPendingValue}>{profile?.pendingReferralReward?.toFixed(2) || '0'} TFT</Text>
+              <Text style={[styles.rewardPendingValue, (profile?.pendingReferralReward ?? 0) <= 0 && styles.rewardPendingZero]}>
+                {(profile?.pendingReferralReward || 0).toFixed(2)} TFT
+              </Text>
             </View>
           </View>
+
+          {/* Reward Breakdown */}
+          <View style={styles.rewardBreakdown}>
+            <View style={styles.rewardBreakdownItem}>
+              <View style={styles.rewardBreakdownIcon}>
+                <FontAwesome6 name="user-plus" size={12} color={COLORS.primary} />
+              </View>
+              <View>
+                <Text style={styles.rewardBreakdownLabel}>直推奖励</Text>
+                <Text style={styles.rewardBreakdownValue}>{(profile?.directReward || 0).toFixed(2)} TFT</Text>
+              </View>
+            </View>
+            <View style={styles.rewardBreakdownDivider} />
+            <View style={styles.rewardBreakdownItem}>
+              <View style={[styles.rewardBreakdownIcon, { backgroundColor: 'rgba(99,102,241,0.12)' }]}>
+                <FontAwesome6 name="layer-group" size={12} color="#818cf8" />
+              </View>
+              <View>
+                <Text style={styles.rewardBreakdownLabel}>见点奖励</Text>
+                <Text style={styles.rewardBreakdownValue}>{(profile?.levelReward || 0).toFixed(2)} TFT</Text>
+              </View>
+            </View>
+            <View style={styles.rewardBreakdownDivider} />
+            <View style={styles.rewardBreakdownItem}>
+              <View style={[styles.rewardBreakdownIcon, { backgroundColor: 'rgba(16,185,129,0.12)' }]}>
+                <FontAwesome6 name="circle-check" size={12} color={COLORS.success} />
+              </View>
+              <View>
+                <Text style={styles.rewardBreakdownLabel}>已领取</Text>
+                <Text style={styles.rewardBreakdownValue}>{(profile?.claimedReward || 0).toFixed(2)} TFT</Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Last Claim TxHash */}
+          {lastClaimTx && (
+            <View style={styles.lastClaimRow}>
+              <FontAwesome6 name="circle-check" size={12} color={COLORS.success} />
+              <Text style={styles.lastClaimText} numberOfLines={1}>
+                上次领取：{lastClaimTx.slice(0, 8)}...{lastClaimTx.slice(-6)}
+              </Text>
+            </View>
+          )}
+
+          {/* Claim Button */}
           <TouchableOpacity
-            style={[styles.claimRewardBtn, (!isConnected || claiming) && styles.claimRewardBtnDisabled]}
+            style={[
+              styles.claimRewardBtn,
+              (!isConnected) && styles.claimRewardBtnConnect,
+              (claiming || !profile?.pendingReferralReward || (profile?.pendingReferralReward ?? 0) <= 0) && styles.claimRewardBtnDisabled,
+            ]}
             onPress={handleClaimReferral}
-            disabled={!isConnected || claiming}
+            disabled={claiming}
           >
             {claiming ? (
-              <ActivityIndicator color={COLORS.primary} size="small" />
+              <ActivityIndicator color={isConnected ? COLORS.primary : COLORS.textPrimary} size="small" />
             ) : (
-              <Text style={styles.claimRewardText}>
-                {!isConnected ? '连接钱包' : '领取奖励'}
+              <Text style={[styles.claimRewardText, (!isConnected) && styles.claimRewardTextConnect]}>
+                {!isConnected ? '连接钱包领取' : (profile?.pendingReferralReward && profile.pendingReferralReward > 0) ? '领取奖励' : '暂无可领取'}
               </Text>
             )}
           </TouchableOpacity>
+
+          {/* Reward History Toggle */}
+          {profile?.rewardHistory && profile.rewardHistory.length > 0 && (
+            <TouchableOpacity
+              style={styles.rewardHistoryToggle}
+              onPress={() => setShowRewardHistory(!showRewardHistory)}
+            >
+              <Text style={styles.rewardHistoryToggleText}>
+                {showRewardHistory ? '收起明细' : '奖励明细'} ({profile.rewardHistory.length})
+              </Text>
+              <FontAwesome6
+                name={showRewardHistory ? 'chevron-up' : 'chevron-down'}
+                size={10}
+                color={COLORS.textSecondary}
+              />
+            </TouchableOpacity>
+          )}
+
+          {/* Reward History List */}
+          {showRewardHistory && profile?.rewardHistory?.map((item) => (
+            <View key={item.id} style={styles.rewardHistoryItem}>
+              <View style={styles.rewardHistoryLeft}>
+                <View style={[
+                  styles.rewardHistoryTypeIcon,
+                  item.type === 'direct' ? { backgroundColor: 'rgba(245,166,35,0.12)' } : { backgroundColor: 'rgba(99,102,241,0.12)' },
+                ]}>
+                  <FontAwesome6
+                    name={item.type === 'direct' ? 'user-plus' : 'layer-group'}
+                    size={10}
+                    color={item.type === 'direct' ? COLORS.primary : '#818cf8'}
+                  />
+                </View>
+                <View>
+                  <Text style={styles.rewardHistoryType}>
+                    {item.type === 'direct' ? '直推奖励' : `见点奖励${item.level ? ` L${item.level}` : ''}`}
+                  </Text>
+                  <Text style={styles.rewardHistoryFrom}>来自 {item.from}</Text>
+                </View>
+              </View>
+              <View style={styles.rewardHistoryRight}>
+                <Text style={styles.rewardHistoryAmount}>+{item.amount.toFixed(2)}</Text>
+                <Text style={styles.rewardHistoryDate}>{item.date}</Text>
+              </View>
+            </View>
+          ))}
         </View>
 
         {/* Function Entries */}
@@ -898,7 +1019,74 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   claimRewardBtnDisabled: { opacity: 0.5 },
+  claimRewardBtnConnect: { borderColor: COLORS.primary, backgroundColor: 'rgba(245,166,35,0.08)' },
   claimRewardText: { fontSize: 13, fontWeight: '700', color: COLORS.primary },
+  claimRewardTextConnect: { color: COLORS.primary },
+  // Reward Breakdown
+  rewardBreakdown: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    paddingVertical: 12,
+    marginBottom: 12,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+  },
+  rewardBreakdownItem: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  rewardBreakdownIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    backgroundColor: 'rgba(245,166,35,0.12)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  rewardBreakdownLabel: { fontSize: 10, color: COLORS.textSecondary },
+  rewardBreakdownValue: { fontSize: 13, fontWeight: '700', color: COLORS.textPrimary, fontFamily: 'monospace' },
+  rewardBreakdownDivider: { width: 1, height: 24, backgroundColor: COLORS.border },
+  // Last Claim
+  lastClaimRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 4,
+    marginBottom: 10,
+  },
+  lastClaimText: { fontSize: 11, color: COLORS.textSecondary, fontFamily: 'monospace', flex: 1 },
+  // Reward History
+  rewardHistoryToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    paddingVertical: 10,
+    marginTop: 4,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
+  },
+  rewardHistoryToggleText: { fontSize: 12, color: COLORS.textSecondary, fontWeight: '500' },
+  rewardHistoryItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.04)',
+  },
+  rewardHistoryLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  rewardHistoryTypeIcon: {
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  rewardHistoryType: { fontSize: 12, fontWeight: '600', color: COLORS.textPrimary },
+  rewardHistoryFrom: { fontSize: 10, color: COLORS.textSecondary, fontFamily: 'monospace', marginTop: 1 },
+  rewardHistoryRight: { alignItems: 'flex-end' },
+  rewardHistoryAmount: { fontSize: 13, fontWeight: '700', color: COLORS.success, fontFamily: 'monospace' },
+  rewardHistoryDate: { fontSize: 10, color: COLORS.textSecondary, marginTop: 1 },
+  rewardPendingZero: { color: COLORS.textSecondary },
   // Function Grid
   functionGrid: { flexDirection: 'row', gap: 10, marginBottom: 16 },
   functionBtn: {
