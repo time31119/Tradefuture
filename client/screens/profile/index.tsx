@@ -489,15 +489,21 @@ export default function ProfileScreen() {
         <View style={styles.rewardCard}>
           {/* Main Reward Info */}
           <View style={styles.rewardInfo}>
-            <View>
+            <View style={styles.rewardMainLeft}>
               <Text style={styles.rewardLabel}>累计推荐奖励</Text>
-              <Text style={styles.rewardValue}>{(profile?.totalReferralReward || 0).toFixed(2)} TFT</Text>
+              <View style={styles.rewardValueRow}>
+                <Text style={styles.rewardValue}>{(profile?.totalReferralReward || 0).toFixed(2)}</Text>
+                <Text style={styles.rewardValueUnit}>TFT</Text>
+              </View>
             </View>
             <View style={styles.rewardPending}>
               <Text style={styles.rewardPendingLabel}>待领取</Text>
-              <Text style={[styles.rewardPendingValue, (profile?.pendingReferralReward ?? 0) <= 0 && styles.rewardPendingZero]}>
-                {(profile?.pendingReferralReward || 0).toFixed(2)} TFT
-              </Text>
+              <View style={styles.rewardPendingRow}>
+                <Text style={[styles.rewardPendingValue, (profile?.pendingReferralReward ?? 0) <= 0 && styles.rewardPendingZero]}>
+                  {(profile?.pendingReferralReward || 0).toFixed(2)}
+                </Text>
+                <Text style={styles.rewardPendingUnit}>TFT</Text>
+              </View>
             </View>
           </View>
 
@@ -988,17 +994,23 @@ const styles = StyleSheet.create({
   rewardCard: {
     backgroundColor: COLORS.surface,
     borderRadius: 16,
-    padding: 18,
+    padding: 20,
     borderWidth: 1,
     borderColor: COLORS.border,
     marginBottom: 16,
   },
-  rewardInfo: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 16 },
-  rewardLabel: { fontSize: 11, color: COLORS.textSecondary, marginBottom: 6 },
-  rewardValue: { fontSize: 24, fontWeight: '800', color: COLORS.primary, fontFamily: 'monospace' },
+  rewardInfo: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 18 },
+  rewardMainLeft: { flex: 1 },
+  rewardLabel: { fontSize: 12, color: COLORS.textSecondary, marginBottom: 8, letterSpacing: 0.5 },
+  rewardValueRow: { flexDirection: 'row', alignItems: 'baseline', gap: 6 },
+  rewardValue: { fontSize: 28, fontWeight: '800', color: COLORS.primary, fontFamily: 'monospace', lineHeight: 32 },
+  rewardValueUnit: { fontSize: 12, color: COLORS.primary, fontWeight: '600', opacity: 0.7 },
   rewardPending: { alignItems: 'flex-end' },
-  rewardPendingLabel: { fontSize: 11, color: COLORS.textSecondary, marginBottom: 6 },
-  rewardPendingValue: { fontSize: 18, fontWeight: '800', color: COLORS.textPrimary, fontFamily: 'monospace' },
+  rewardPendingLabel: { fontSize: 12, color: COLORS.textSecondary, marginBottom: 8, letterSpacing: 0.5 },
+  rewardPendingRow: { flexDirection: 'row', alignItems: 'baseline', gap: 4 },
+  rewardPendingValue: { fontSize: 20, fontWeight: '800', color: COLORS.textPrimary, fontFamily: 'monospace', lineHeight: 24 },
+  rewardPendingUnit: { fontSize: 11, color: COLORS.textSecondary, fontWeight: '600' },
+  rewardPendingZero: { color: COLORS.textSecondary, opacity: 0.5 },
   claimRewardBtn: {
     borderWidth: 1,
     borderColor: COLORS.primary,
@@ -1069,7 +1081,6 @@ const styles = StyleSheet.create({
   rewardHistoryRight: { alignItems: 'flex-end' },
   rewardHistoryAmount: { fontSize: 13, fontWeight: '700', color: COLORS.success, fontFamily: 'monospace' },
   rewardHistoryDate: { fontSize: 10, color: COLORS.textSecondary, marginTop: 1 },
-  rewardPendingZero: { color: COLORS.textSecondary },
   // Function Grid
   functionGrid: { flexDirection: 'row', gap: 10, marginBottom: 16 },
   functionBtn: {
