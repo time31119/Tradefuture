@@ -23,7 +23,6 @@ import { COLORS } from '@/utils/theme';
 import QRCode from 'react-native-qrcode-svg';
 import { captureRef } from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
-import * as FileSystem from 'expo-file-system/legacy';
 import * as ImagePicker from 'expo-image-picker';
 import * as MediaLibrary from 'expo-media-library';
 
@@ -250,11 +249,8 @@ export default function ProfileScreen() {
           Alert.alert('权限不足', '请允许访问相册以保存海报');
           return;
         }
-        // Copy to a persistent location
-        const docDir = (FileSystem as any).documentDirectory || '/tmp/';
-        const destPath = docDir + `tradefuture-invite-${Date.now()}.png`;
-        await (FileSystem as any).copyAsync({ from: uri, to: destPath });
-        await MediaLibrary.createAssetAsync(destPath);
+        // Directly save the captured image to media library
+        await MediaLibrary.createAssetAsync(uri);
         Alert.alert('成功', '海报已保存到相册');
       }
     } catch (error) {
@@ -836,6 +832,150 @@ export default function ProfileScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Tutorial Modal */}
+      <Modal visible={showTutorial} transparent animationType="slide" onRequestClose={() => setShowTutorial(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>使用教程</Text>
+              <TouchableOpacity onPress={() => setShowTutorial(false)}>
+                <FontAwesome6 name="xmark" size={20} color={COLORS.textSecondary} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={styles.modalBody}>
+              <View style={styles.tutorialSection}>
+                <View style={styles.tutorialStep}>
+                  <View style={styles.tutorialStepNumber}>
+                    <Text style={styles.tutorialStepNumberText}>1</Text>
+                  </View>
+                  <View style={styles.tutorialStepContent}>
+                    <Text style={styles.tutorialStepTitle}>连接钱包</Text>
+                    <Text style={styles.tutorialStepDesc}>点击"连接钱包"按钮，授权连接你的 BSC 钱包（支持 MetaMask、Trust Wallet 等）。</Text>
+                  </View>
+                </View>
+                <View style={styles.tutorialStep}>
+                  <View style={styles.tutorialStepNumber}>
+                    <Text style={styles.tutorialStepNumberText}>2</Text>
+                  </View>
+                  <View style={styles.tutorialStepContent}>
+                    <Text style={styles.tutorialStepTitle}>激活 VIP</Text>
+                    <Text style={styles.tutorialStepDesc}>支付 100 USDT 激活 VIP 会员，获得无限次预测资格、直推奖励、见点奖励等权益。</Text>
+                  </View>
+                </View>
+                <View style={styles.tutorialStep}>
+                  <View style={styles.tutorialStepNumber}>
+                    <Text style={styles.tutorialStepNumberText}>3</Text>
+                  </View>
+                  <View style={styles.tutorialStepContent}>
+                    <Text style={styles.tutorialStepTitle}>参与预测</Text>
+                    <Text style={styles.tutorialStepDesc}>在预测页面选择 BTC 涨跌方向和下注金额，每 5 分钟一期，赢家瓜分 80% 奖池。</Text>
+                  </View>
+                </View>
+                <View style={styles.tutorialStep}>
+                  <View style={styles.tutorialStepNumber}>
+                    <Text style={styles.tutorialStepNumberText}>4</Text>
+                  </View>
+                  <View style={styles.tutorialStepContent}>
+                    <Text style={styles.tutorialStepTitle}>邀请好友</Text>
+                    <Text style={styles.tutorialStepDesc}>分享邀请链接或海报，好友激活 VIP 后你可获得 50 USDT 直推奖励，以及 20 级见点奖励。</Text>
+                  </View>
+                </View>
+                <View style={styles.tutorialStep}>
+                  <View style={styles.tutorialStepNumber}>
+                    <Text style={styles.tutorialStepNumberText}>5</Text>
+                  </View>
+                  <View style={styles.tutorialStepContent}>
+                    <Text style={styles.tutorialStepTitle}>升级节点/做市商</Text>
+                    <Text style={styles.tutorialStepDesc}>销毁 TFT 或添加 LP 获得节点合伙人资格，或达成推荐业绩成为做市商，享受更多分红权益。</Text>
+                  </View>
+                </View>
+              </View>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Settings Modal */}
+      <Modal visible={showSettings} transparent animationType="slide" onRequestClose={() => setShowSettings(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>设置</Text>
+              <TouchableOpacity onPress={() => setShowSettings(false)}>
+                <FontAwesome6 name="xmark" size={20} color={COLORS.textSecondary} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={styles.modalBody}>
+              <View style={styles.settingsSection}>
+                <Text style={styles.settingsSectionTitle}>账户</Text>
+                <View style={styles.settingsItem}>
+                  <View style={styles.settingsItemLeft}>
+                    <FontAwesome6 name="wallet" size={18} color={COLORS.primary} />
+                    <Text style={styles.settingsItemText}>钱包地址</Text>
+                  </View>
+                  <Text style={styles.settingsItemValue} numberOfLines={1} ellipsizeMode="middle">
+                    {isConnected ? wallet?.shortAddress : '未连接'}
+                  </Text>
+                </View>
+                <View style={styles.settingsItem}>
+                  <View style={styles.settingsItemLeft}>
+                    <FontAwesome6 name="shield-halved" size={18} color={COLORS.primary} />
+                    <Text style={styles.settingsItemText}>VIP 状态</Text>
+                  </View>
+                  <Text style={[styles.settingsItemValue, { color: profile?.isVIP ? COLORS.primary : COLORS.textSecondary }]}>
+                    {profile?.isVIP ? '已激活' : '未激活'}
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.settingsSection}>
+                <Text style={styles.settingsSectionTitle}>网络</Text>
+                <View style={styles.settingsItem}>
+                  <View style={styles.settingsItemLeft}>
+                    <FontAwesome6 name="chain" size={18} color={COLORS.primary} />
+                    <Text style={styles.settingsItemText}>当前网络</Text>
+                  </View>
+                  <Text style={styles.settingsItemValue}>BSC (BEP-20)</Text>
+                </View>
+              </View>
+
+              <View style={styles.settingsSection}>
+                <Text style={styles.settingsSectionTitle}>关于</Text>
+                <View style={styles.settingsItem}>
+                  <View style={styles.settingsItemLeft}>
+                    <FontAwesome6 name="circle-info" size={18} color={COLORS.primary} />
+                    <Text style={styles.settingsItemText}>版本</Text>
+                  </View>
+                  <Text style={styles.settingsItemValue}>v1.0.0</Text>
+                </View>
+                <View style={styles.settingsItem}>
+                  <View style={styles.settingsItemLeft}>
+                    <FontAwesome6 name="file-contract" size={18} color={COLORS.primary} />
+                    <Text style={styles.settingsItemText}>合约地址</Text>
+                  </View>
+                  <Text style={styles.settingsItemValue} numberOfLines={1} ellipsizeMode="middle">待部署</Text>
+                </View>
+              </View>
+
+              {isConnected && (
+                <View style={styles.settingsSection}>
+                  <TouchableOpacity
+                    style={styles.disconnectBtn}
+                    onPress={() => {
+                      disconnect();
+                      setShowSettings(false);
+                    }}
+                  >
+                    <FontAwesome6 name="right-from-bracket" size={16} color="#EF4444" />
+                    <Text style={styles.disconnectBtnText}>断开钱包连接</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </Screen>
   );
 }
@@ -1358,4 +1498,60 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   teamModalCloseText: { fontSize: 15, fontWeight: '700', color: COLORS.textSecondary },
+  // Tutorial & Settings Modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.8)',
+    justifyContent: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    width: '100%',
+    maxWidth: 400,
+    backgroundColor: COLORS.surface,
+    borderRadius: 20,
+    overflow: 'hidden',
+    alignSelf: 'center',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    paddingBottom: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  modalTitle: { fontSize: 18, fontWeight: '800', color: COLORS.textPrimary },
+  modalBody: { padding: 20, maxHeight: 400 },
+  // Tutorial
+  tutorialSection: { gap: 16 },
+  tutorialStep: { flexDirection: 'row', gap: 12 },
+  tutorialStepNumber: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(245,166,35,0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  tutorialStepNumberText: { fontSize: 13, fontWeight: '800', color: COLORS.primary },
+  tutorialStepContent: { flex: 1 },
+  tutorialStepTitle: { fontSize: 15, fontWeight: '700', color: COLORS.textPrimary, marginBottom: 4 },
+  tutorialStepDesc: { fontSize: 13, color: COLORS.textSecondary, lineHeight: 19 },
+  // Settings
+  settingsSection: { marginBottom: 20 },
+  settingsSectionTitle: { fontSize: 12, fontWeight: '700', color: COLORS.textSecondary, marginBottom: 10, letterSpacing: 0.5 },
+  settingsItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.05)',
+  },
+  settingsItemLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  settingsItemText: { fontSize: 14, color: COLORS.textPrimary },
+  settingsItemValue: { fontSize: 13, color: COLORS.textSecondary, fontFamily: 'monospace', maxWidth: 160 },
+  disconnectBtnText: { fontSize: 14, fontWeight: '700', color: '#EF4444', marginLeft: 8 },
 });
