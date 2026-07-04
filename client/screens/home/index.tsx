@@ -429,7 +429,10 @@ export default function HomeScreen() {
             <Text style={styles.headerTitle}>TradeFuture</Text>
           </View>
           <View style={styles.headerRight}>
-            <TouchableOpacity style={styles.notificationBtn}>
+            <TouchableOpacity
+              style={styles.notificationBtn}
+              onPress={() => Alert.alert('通知', '暂无新通知')}
+            >
               <FontAwesome6 name="bell" size={16} color={COLORS.textSecondary} />
             </TouchableOpacity>
             {isConnected ? (
