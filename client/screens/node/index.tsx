@@ -56,7 +56,7 @@ type RewardFilter = 'all' | 'node' | 'lp';
 
 export default function NodeScreen() {
   const router = useSafeRouter();
-  const { isConnected } = useWallet();
+  const { isConnected, connect } = useWallet();
   const [data, setData] = useState<NodeData | null>(null);
   const [loading, setLoading] = useState(true);
   const [tftAmount, setTftAmount] = useState('100000');
@@ -90,7 +90,7 @@ export default function NodeScreen() {
 
   const handleClaimRewards = async () => {
     if (!isConnected) {
-      Alert.alert('需要钱包', '请先连接钱包');
+      connect();
       return;
     }
     setClaiming(true);
@@ -118,7 +118,7 @@ export default function NodeScreen() {
 
   const handleAcquireNode = async () => {
     if (!isConnected) {
-      Alert.alert('需要钱包', '请先连接钱包');
+      connect();
       return;
     }
 
@@ -189,7 +189,7 @@ export default function NodeScreen() {
 
   const handleWithdrawLP = async () => {
     if (!isConnected) {
-      Alert.alert('需要钱包', '请先连接钱包');
+      connect();
       return;
     }
     const amount = parseFloat(withdrawAmount);

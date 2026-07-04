@@ -330,25 +330,30 @@ export default function ProfileScreen() {
             style={styles.userCardGradient}
           >
             <View style={styles.userHeader}>
-              <TouchableOpacity style={styles.avatarContainer} onPress={handlePickAvatar}>
+              <TouchableOpacity style={styles.avatarContainer} onPress={isConnected ? handlePickAvatar : connect}>
                 {avatarUri ? (
                   <Image source={{ uri: avatarUri }} style={styles.avatarImage} />
                 ) : (
-                  <FontAwesome6 name="circle-user" size={40} color={COLORS.primary} />
+                  <FontAwesome6 name="circle-user" size={40} color={isConnected ? COLORS.primary : COLORS.textSecondary} />
                 )}
-                <View style={styles.avatarEditBadge}>
-                  <FontAwesome6 name="camera" size={10} color="#FFFFFF" />
-                </View>
+                {isConnected && (
+                  <View style={styles.avatarEditBadge}>
+                    <FontAwesome6 name="camera" size={10} color="#FFFFFF" />
+                  </View>
+                )}
               </TouchableOpacity>
               <View style={styles.userInfo}>
-                <TouchableOpacity onPress={handleCopyAddress}>
-                  <Text style={styles.userAddress}>
-                    {isConnected ? wallet?.shortAddress : '未连接'}
-                  </Text>
-                  {isConnected && (
+                {isConnected ? (
+                  <TouchableOpacity onPress={handleCopyAddress}>
+                    <Text style={styles.userAddress}>{wallet?.shortAddress}</Text>
                     <Text style={styles.copyHint}>点击复制地址</Text>
-                  )}
-                </TouchableOpacity>
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity onPress={connect} style={styles.connectWalletBtn}>
+                    <FontAwesome6 name="wallet" size={14} color={COLORS.primary} />
+                    <Text style={styles.connectWalletText}>连接钱包</Text>
+                  </TouchableOpacity>
+                )}
                 {profile?.isVIP ? (
                   <View style={styles.vipBadge}>
                     <FontAwesome6 name="crown" size={10} color={COLORS.primary} />
@@ -1025,6 +1030,17 @@ const styles = StyleSheet.create({
   userInfo: { flex: 1 },
   userAddress: { fontSize: 16, fontWeight: '700', color: COLORS.textPrimary, fontFamily: 'monospace' },
   copyHint: { fontSize: 11, color: COLORS.textSecondary, marginTop: 2 },
+  connectWalletBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(99,102,241,0.12)',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    alignSelf: 'flex-start',
+  },
+  connectWalletText: { fontSize: 14, fontWeight: '600', color: COLORS.primary },
   vipBadge: {
     flexDirection: 'row',
     alignItems: 'center',

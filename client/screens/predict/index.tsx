@@ -64,7 +64,7 @@ interface BtcPrice {
 }
 
 export default function PredictScreen() {
-  const { isConnected } = useWallet();
+  const { isConnected, connect } = useWallet();
   const router = useSafeRouter();
   const [data, setData] = useState<PredictionData | null>(null);
   const [direction, setDirection] = useState<'up' | 'down'>('up');
@@ -156,7 +156,7 @@ export default function PredictScreen() {
 
   const handleSubmit = async () => {
     if (!isConnected) {
-      Alert.alert('需要钱包', '请先连接钱包');
+      connect();
       return;
     }
     const amountNum = parseFloat(amount);
@@ -462,9 +462,9 @@ export default function PredictScreen() {
 
           {/* Submit Button */}
           <TouchableOpacity
-            style={[styles.submitBtn, (!isConnected || submitting) && styles.submitBtnDisabled]}
+            style={[styles.submitBtn, submitting && styles.submitBtnDisabled]}
             onPress={handleSubmit}
-            disabled={!isConnected || submitting}
+            disabled={submitting}
           >
             <LinearGradient
               colors={isConnected ? COLORS.GRADIENT_PRIMARY : ['#333', '#444']}

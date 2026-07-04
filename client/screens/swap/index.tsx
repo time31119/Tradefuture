@@ -39,7 +39,7 @@ interface SwapQuote {
 
 export default function SwapScreen() {
   const router = useSafeRouter();
-  const { isConnected } = useWallet();
+  const { isConnected, connect } = useWallet();
   const [balances, setBalances] = useState<Balances | null>(null);
   const [quote, setQuote] = useState<SwapQuote | null>(null);
   const [fromToken, setFromToken] = useState<'TFT' | 'USDT'>('TFT');
@@ -114,7 +114,7 @@ export default function SwapScreen() {
 
   const handleSwap = async () => {
     if (!isConnected) {
-      Alert.alert('需要钱包', '请先连接钱包');
+      connect();
       return;
     }
     if (!inputAmount || parseFloat(inputAmount) <= 0) {
@@ -148,7 +148,11 @@ export default function SwapScreen() {
   };
 
   const handleAddLiquidity = async () => {
-    if (!isConnected || !addTft) return;
+    if (!isConnected) {
+      connect();
+      return;
+    }
+    if (!addTft) return;
     try {
       /**
        * 服务端文件：server/src/index.ts
@@ -172,7 +176,11 @@ export default function SwapScreen() {
   };
 
   const handleRemoveLiquidity = async () => {
-    if (!isConnected || !removeLp) return;
+    if (!isConnected) {
+      connect();
+      return;
+    }
+    if (!removeLp) return;
     try {
       /**
        * 服务端文件：server/src/index.ts
@@ -316,9 +324,9 @@ export default function SwapScreen() {
 
           {/* Swap Button */}
           <TouchableOpacity
-            style={[styles.swapBtn, (!isConnected || swapping) && styles.swapBtnDisabled]}
+            style={[styles.swapBtn, swapping && styles.swapBtnDisabled]}
             onPress={handleSwap}
-            disabled={!isConnected || swapping}
+            disabled={swapping}
           >
             <LinearGradient
               colors={isConnected ? COLORS.GRADIENT_PRIMARY : ['#333', '#444']}
@@ -373,11 +381,10 @@ export default function SwapScreen() {
               池子比例: 1 TFT = {balances?.tftPrice?.toFixed(2) || '0.50'} USDT
             </Text>
             <TouchableOpacity
-              style={[styles.liquidityBtn, !isConnected && styles.liquidityBtnDisabled]}
+              style={styles.liquidityBtn}
               onPress={handleAddLiquidity}
-              disabled={!isConnected}
             >
-              <Text style={[styles.liquidityBtnText, { color: COLORS.success }]}>
+              <Text style={[styles.liquidityBtnText, { color: !isConnected ? COLORS.textSecondary : COLORS.success }]}>
                 {!isConnected ? '请先连接钱包' : '添加流动性'}
               </Text>
             </TouchableOpacity>
@@ -407,11 +414,11 @@ export default function SwapScreen() {
               </Text>
             )}
             <TouchableOpacity
-              style={[styles.liquidityBtn, (!isConnected || !removeLp) && styles.liquidityBtnDisabled]}
+              style={[styles.liquidityBtn, !removeLp && styles.liquidityBtnDisabled]}
               onPress={handleRemoveLiquidity}
-              disabled={!isConnected || !removeLp}
+              disabled={!removeLp && isConnected}
             >
-              <Text style={[styles.liquidityBtnText, { color: COLORS.danger }]}>
+              <Text style={[styles.liquidityBtnText, { color: !isConnected ? COLORS.textSecondary : COLORS.danger }]}>
                 {!isConnected ? '请先连接钱包' : '移除流动性'}
               </Text>
             </TouchableOpacity>

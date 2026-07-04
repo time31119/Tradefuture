@@ -64,7 +64,7 @@ interface MarketMakerBenefits {
 }
 
 export default function MarketMakerScreen() {
-  const { wallet } = useWallet();
+  const { wallet, connect, isConnected } = useWallet();
   const router = useSafeRouter();
   const address = wallet?.address;
   const [loading, setLoading] = useState(true);
@@ -116,8 +116,8 @@ export default function MarketMakerScreen() {
   };
 
   const handleApply = async () => {
-    if (!address) {
-      Alert.alert('提示', '请先连接钱包');
+    if (!isConnected) {
+      connect();
       return;
     }
 
