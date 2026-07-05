@@ -24,6 +24,8 @@ export default function RootLayout() {
         }}
       >
         <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="tokenomics" />
+        <Stack.Screen name="marketmaker" />
       </Stack>
       <Toast />
     </Provider>
