@@ -78,7 +78,7 @@ contract VIPSystem is Ownable, ReentrancyGuard {
     
     // TFT价格（USDT per TFT, 6 decimals to match USDT）
     // 例如: 0.01 USDT = 10000 (1e4)
-    uint256 public tftPriceInUSDT = 1e4; // 默认 0.01 USDT (in 6 decimals)
+    uint256 public tftPriceInUSDT = 1e3; // 默认 0.001 USDT (in 6 decimals)
     
     // ============ 事件 ============
     
@@ -365,7 +365,7 @@ contract VIPSystem is Ownable, ReentrancyGuard {
      */
     function _calculateTFTReturn(uint256 usdtAmount) internal view returns (uint256) {
         // usdtAmount is in 6 decimals (e.g., 20 USDT = 20e6 = 20,000,000)
-        // tftPriceInUSDT is price of 1 TFT in USDT, in 6 decimals (e.g., 0.01 USDT = 1e4 = 10,000)
+        // tftPriceInUSDT is price of 1 TFT in USDT, in 6 decimals (e.g., 0.001 USDT = 1e3 = 1,000)
         // Result should be in 18 decimals (TFT)
         // Formula: tftAmount = (usdtAmount / tftPriceInUSDT) * 1e18
         return (usdtAmount * 1e18) / tftPriceInUSDT;

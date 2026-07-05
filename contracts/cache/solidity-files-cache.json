@@ -812,8 +812,8 @@
       ]
     },
     "/workspace/projects/contracts/src/VIPSystem.sol": {
-      "lastModificationDate": 1783236657064,
-      "contentHash": "3c27c5a25190a223a6835d14763b94c8",
+      "lastModificationDate": 1783256946221,
+      "contentHash": "c5371367622085f8775c7c5c32fbc363",
       "sourceName": "src/VIPSystem.sol",
       "solcConfig": {
         "version": "0.8.24",

@@ -208,12 +208,12 @@ describe("New Contracts", function () {
     });
 
     it("Should return correct TFT amount for USDT", async function () {
-      // Default price: 0.01 USDT per TFT
+      // Default price: 0.001 USDT per TFT
       const usdtAmount = ethers.parseUnits("20", 6); // 20 USDT
       const tftAmount = await vipSystem.calculateTFTReturn(usdtAmount);
       
-      // 20 USDT / 0.01 = 2000 TFT
-      expect(tftAmount).to.equal(ethers.parseUnits("2000", 18));
+      // 20 USDT / 0.001 = 20000 TFT
+      expect(tftAmount).to.equal(ethers.parseUnits("20000", 18));
     });
 
     it("Should allow owner to update TFT price", async function () {
