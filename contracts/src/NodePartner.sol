@@ -29,8 +29,10 @@ contract NodePartner is Ownable, ReentrancyGuard {
     address public constant BURN_ADDRESS = 0x000000000000000000000000000000000000dEaD;
     
     // Node costs
-    uint256 public constant BURN_COST = 100_000 * 1e18;  // 100,000 TFT
-    uint256 public constant LP_COST = 50_000 * 1e18;     // 50,000 TFT
+    uint256 public constant BURN_COST = 100_000 * 1e18;  // 100,000 TFT for 1 node
+    uint256 public constant BURN_COST_2X = 200_000 * 1e18;  // 200,000 TFT for 2 nodes
+    uint256 public constant LP_COST = 50_000 * 1e18;     // 50,000 TFT for 1 node
+    uint256 public constant LP_COST_2X = 100_000 * 1e18;  // 100,000 TFT for 2 nodes
     
     // LP lockup parameters
     uint256 public constant TOTAL_PERIODS = 50;           // 50 periods
@@ -142,6 +144,74 @@ contract NodePartner is Ownable, ReentrancyGuard {
         userNodeCount[msg.sender]++;
         activeNodes++;
         
+        emit NodeCreated(msg.sender, 2, block.timestamp);
+        emit LPAdded(msg.sender, _tftAmount, _usdtAmount);
+    }
+    
+    /**
+     * @notice Create 2 nodes by burning 200,000 TFT
+     */
+    function createNodesByBurn() external nonReentrant {
+        require(activeNodes + 2 <= maxNodes, "Max nodes reached");
+        require(tft.balanceOf(msg.sender) >= BURN_COST_2X, "Insufficient TFT");
+        
+        // Transfer TFT to burn address
+        tft.safeTransferFrom(msg.sender, BURN_ADDRESS, BURN_COST_2X);
+        
+        // Create 2 nodes
+        for (uint256 i = 0; i < 2; i++) {
+            userNodes[msg.sender].push(Node({
+                owner: msg.sender,
+                nodeType: 1,
+                createdAt: block.timestamp,
+                active: true
+            }));
+            
+            userNodeCount[msg.sender]++;
+            activeNodes++;
+        }
+        
+        emit NodeCreated(msg.sender, 1, block.timestamp);
+        emit NodeCreated(msg.sender, 1, block.timestamp);
+    }
+    
+    /**
+     * @notice Create 2 nodes by adding LP (100,000 TFT + equivalent USDT)
+     * @param _tftAmount TFT amount (must be >= LP_COST_2X)
+     * @param _usdtAmount USDT amount (equivalent value)
+     */
+    function createNodesByLP(uint256 _tftAmount, uint256 _usdtAmount) external nonReentrant {
+        require(activeNodes + 2 <= maxNodes, "Max nodes reached");
+        require(_tftAmount >= LP_COST_2X, "Insufficient TFT");
+        require(_usdtAmount > 0, "USDT amount must be > 0");
+        
+        // Transfer tokens to this contract
+        tft.safeTransferFrom(msg.sender, address(this), _tftAmount);
+        usdt.safeTransferFrom(msg.sender, address(this), _usdtAmount);
+        
+        // Create 2 nodes
+        for (uint256 i = 0; i < 2; i++) {
+            userNodes[msg.sender].push(Node({
+                owner: msg.sender,
+                nodeType: 2,
+                createdAt: block.timestamp,
+                active: true
+            }));
+            
+            userNodeCount[msg.sender]++;
+            activeNodes++;
+        }
+        
+        // Create LP lockup
+        userLPLockup[msg.sender] = LPLockup({
+            totalLP: _tftAmount,
+            unlockedLP: 0,
+            currentPeriod: 0,
+            lastUnlockTime: block.timestamp,
+            active: true
+        });
+        
+        emit NodeCreated(msg.sender, 2, block.timestamp);
         emit NodeCreated(msg.sender, 2, block.timestamp);
         emit LPAdded(msg.sender, _tftAmount, _usdtAmount);
     }

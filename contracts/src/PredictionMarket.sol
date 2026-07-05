@@ -8,6 +8,7 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 interface IInsurancePool {
     function notifyDeposit(uint256 amount) external;
+    function payInsuranceToUser(address user, uint256 usdtValue) external;
 }
 
 /**
@@ -44,6 +45,9 @@ contract PredictionMarket is Ownable, ReentrancyGuard {
     
     // Insurance rate: 20% (2000 basis points)
     uint256 public constant INSURANCE_RATE = 2000;
+    
+    // Insurance payout rate: 40% of losing bet (4000 basis points)
+    uint256 public constant INSURANCE_PAYOUT_RATE = 4000;
     
     // Minimum bet amount: 1 USDT (6 decimals)
     uint256 public constant MIN_BET_AMOUNT = 1e6;
@@ -103,6 +107,7 @@ contract PredictionMarket is Ownable, ReentrancyGuard {
     event BetPlaced(address indexed user, uint256 indexed roundId, Direction direction, uint256 amount, uint256 insuranceAmount);
     event RoundSettled(uint256 indexed roundId, uint256 endPrice, Direction winningDirection);
     event BetClaimed(address indexed user, uint256 indexed roundId, uint256 amount);
+    event InsurancePayout(address indexed user, uint256 indexed roundId, uint256 usdtValue);
     event RoundCancelled(uint256 indexed roundId);
     event OracleUpdated(address newOracle);
     event InsurancePoolUpdated(address newPool);
@@ -288,8 +293,20 @@ contract PredictionMarket is Ownable, ReentrancyGuard {
             uint256 fee = (profitShare * FEE_RATE) / 10000;
             claimAmount = bet.amount + profitShare - fee;
         } else {
-            // Loser - no payout (insurance already received)
+            // Loser - receive 40% of bet amount in TFT from insurance pool
             claimAmount = 0;
+            
+            // Calculate insurance payout (40% of original bet amount)
+            uint256 insuranceUSDT = (bet.amount * INSURANCE_PAYOUT_RATE) / 10000;
+            
+            // Call insurance pool to pay TFT to user
+            if (insurancePool != address(0) && insuranceUSDT > 0) {
+                try IInsurancePool(insurancePool).payInsuranceToUser(msg.sender, insuranceUSDT) {
+                    emit InsurancePayout(msg.sender, _roundId, insuranceUSDT);
+                } catch {
+                    // If insurance payout fails, user can claim directly from insurance pool
+                }
+            }
         }
         
         bet.claimed = true;

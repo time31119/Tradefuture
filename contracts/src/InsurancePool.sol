@@ -48,8 +48,9 @@ contract InsurancePool is Ownable, ReentrancyGuard {
     event USDTDeposited(address indexed from, uint256 amount);
     event TFTBought(uint256 usdtAmount, uint256 tftAmount, uint256 price);
     event InsuranceClaimed(address indexed user, uint256 tftAmount, uint256 usdtValue);
+    event InsurancePaidToUser(address indexed user, uint256 tftAmount, uint256 usdtValue);
     event TFTPriceUpdated(uint256 newPrice);
-    event PredictionMarketUpdated(address newMarket);
+    event PredictionMarketUpdated(address market);
     event RoundInsuranceReset(uint256 roundId);
     
     constructor(
@@ -144,6 +145,29 @@ contract InsurancePool is Ownable, ReentrancyGuard {
         tft.safeTransfer(msg.sender, tftAmount);
         
         emit InsuranceClaimed(msg.sender, tftAmount, _usdtValue);
+    }
+    
+    /**
+     * @notice Pay insurance to a user (called by PredictionMarket when user loses)
+     * @param _user The user to receive insurance
+     * @param _usdtValue The USDT value of the insurance (40% of bet amount)
+     */
+    function payInsuranceToUser(address _user, uint256 _usdtValue) external onlyPredictionMarket nonReentrant {
+        require(_user != address(0), "Invalid user");
+        require(_usdtValue > 0, "Amount must be > 0");
+        
+        // Calculate TFT amount based on current price
+        uint256 tftAmount = (_usdtValue * 1e18) / (tftPrice * 1e10);
+        
+        require(tft.balanceOf(address(this)) >= tftAmount, "Insufficient TFT in pool");
+        
+        totalTFTDistributed += tftAmount;
+        totalUSDTDistributed += _usdtValue;
+        userClaims[_user] += tftAmount;
+        
+        tft.safeTransfer(_user, tftAmount);
+        
+        emit InsurancePaidToUser(_user, tftAmount, _usdtValue);
     }
     
     /**
