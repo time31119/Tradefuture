@@ -59,14 +59,14 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const handleConnect = useCallback(async () => {
     setIsConnecting(true);
     try {
-      // 模拟钱包连接（临时方案）
-      const mockAddress = '0x1234567890123456789012345678901234567890';
+      // 使用用户提供的真实 BNB Chain 钱包地址
+      const walletAddress = '0x26301C7918aeD704c1A420934AA82aEC42DCEE81';
       const chainId = 56; // BSC
       const chainInfo = getChainInfo(chainId);
       
       const walletData: WalletData = {
-        address: mockAddress,
-        shortAddress: shortenAddress(mockAddress),
+        address: walletAddress,
+        shortAddress: shortenAddress(walletAddress),
         chainId,
         chainName: chainInfo?.name || 'Unknown',
         tftBalance: '0.00',
@@ -75,7 +75,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       };
       
       setWallet(walletData);
-      await connectToBackend(mockAddress);
+      await connectToBackend(walletAddress);
     } catch (error) {
       console.error('Failed to connect wallet:', error);
     } finally {
