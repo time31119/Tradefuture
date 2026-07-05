@@ -8,114 +8,193 @@ async function main() {
   
   // Configuration
   const CONFIG = {
-    // BSC Mainnet addresses (change for testnet)
-    USDT: "0x55d398326f99059fF775485246999027B3197955",  // BSC USDT
+    // BSC Mainnet USDT address
+    USDT: "0x55d398326f99059fF775485246999027B3197955",
     BURN_ADDRESS: "0x000000000000000000000000000000000000dEaD",
     
-    // Token parameters
-    TOKEN_NAME: "TradeFuture Token",
-    TOKEN_SYMBOL: "TFT",
-    INITIAL_SUPPLY: hre.ethers.parseUnits("10000000", 18),  // 10M TFT
+    // Wallet addresses (change to actual addresses before mainnet deployment)
+    nodeDividendWallet: deployer.address,  // Will be updated to NodePartner
+    operationsWallet: deployer.address,    // Operations team wallet
+    marketMakerWallet: deployer.address,   // Will be updated to MarketMaker
     
-    // Tax distribution (total 6%)
-    BURN_RATE: 500,       // 5% burn
-    NODE_POOL_RATE: 30,   // 0.3% node pool
-    OPERATIONS_RATE: 100, // 1% operations
-    MARKET_MAKER_RATE: 100, // 1% market maker
-    INSURANCE_RATE: 200,  // 2% insurance (was 20% bet, now 2% of trade)
+    // Team vesting
+    teamVestingAmount: hre.ethers.parseUnits("1000000", 18), // 1M TFT
+    teamVestingMonths: 50,
     
-    // Prediction market
-    ROUND_DURATION: 300,  // 5 minutes
-    INSURANCE_PERCENTAGE: 20,  // 20% of bet goes to insurance
+    // Initial liquidity
+    initialUSDT: hre.ethers.parseUnits("100", 6),  // 100 USDT
+    initialTFT: hre.ethers.parseUnits("100000", 18), // 100,000 TFT
   };
   
-  console.log("\n=== Deploying TradeFutureToken ===");
+  const deployedContracts = {};
+  
+  // ==========================================
+  // 1. Deploy TradeFutureToken
+  // ==========================================
+  console.log("\n=== [1/9] Deploying TradeFutureToken ===");
   const TradeFutureToken = await hre.ethers.getContractFactory("TradeFutureToken");
   const tft = await TradeFutureToken.deploy(
-    deployer.address, // _nodeDividendWallet (will be updated to node contract after deployment)
-    deployer.address, // _operationsWallet
-    deployer.address  // _marketMakerWallet (will be updated to market maker contract after deployment)
+    CONFIG.nodeDividendWallet,
+    CONFIG.operationsWallet,
+    CONFIG.marketMakerWallet
   );
   await tft.waitForDeployment();
-  const tftAddress = await tft.getAddress();
-  console.log("TradeFutureToken deployed to:", tftAddress);
+  deployedContracts.TradeFutureToken = await tft.getAddress();
+  console.log("TradeFutureToken:", deployedContracts.TradeFutureToken);
   
-  console.log("\n=== Deploying PredictionMarket ===");
-  const PredictionMarket = await hre.ethers.getContractFactory("PredictionMarket");
-  const prediction = await PredictionMarket.deploy(
-    CONFIG.USDT,
-    tftAddress,
-    CONFIG.ROUND_DURATION,
-    CONFIG.INSURANCE_PERCENTAGE
-  );
-  await prediction.waitForDeployment();
-  const predictionAddress = await prediction.getAddress();
-  console.log("PredictionMarket deployed to:", predictionAddress);
-  
-  console.log("\n=== Deploying InsurancePool ===");
+  // ==========================================
+  // 2. Deploy InsurancePool
+  // ==========================================
+  console.log("\n=== [2/9] Deploying InsurancePool ===");
   const InsurancePool = await hre.ethers.getContractFactory("InsurancePool");
   const insurance = await InsurancePool.deploy(
     CONFIG.USDT,
-    tftAddress,
-    predictionAddress
+    deployedContracts.TradeFutureToken,
+    deployer.address // placeholder, will update
   );
   await insurance.waitForDeployment();
-  const insuranceAddress = await insurance.getAddress();
-  console.log("InsurancePool deployed to:", insuranceAddress);
+  deployedContracts.InsurancePool = await insurance.getAddress();
+  console.log("InsurancePool:", deployedContracts.InsurancePool);
   
-  console.log("\n=== Deploying NodePartner ===");
+  // ==========================================
+  // 3. Deploy PredictionMarket
+  // ==========================================
+  console.log("\n=== [3/9] Deploying PredictionMarket ===");
+  const PredictionMarket = await hre.ethers.getContractFactory("PredictionMarket");
+  const prediction = await PredictionMarket.deploy(
+    CONFIG.USDT,
+    deployedContracts.TradeFutureToken,
+    deployedContracts.InsurancePool,
+    deployer.address // oracle
+  );
+  await prediction.waitForDeployment();
+  deployedContracts.PredictionMarket = await prediction.getAddress();
+  console.log("PredictionMarket:", deployedContracts.PredictionMarket);
+  
+  // ==========================================
+  // 4. Deploy NodePartner
+  // ==========================================
+  console.log("\n=== [4/9] Deploying NodePartner ===");
   const NodePartner = await hre.ethers.getContractFactory("NodePartner");
-  const nodePartner = await NodePartner.deploy(tftAddress, CONFIG.USDT);
+  const nodePartner = await NodePartner.deploy(
+    deployedContracts.TradeFutureToken,
+    CONFIG.USDT
+  );
   await nodePartner.waitForDeployment();
-  const nodePartnerAddress = await nodePartner.getAddress();
-  console.log("NodePartner deployed to:", nodePartnerAddress);
+  deployedContracts.NodePartner = await nodePartner.getAddress();
+  console.log("NodePartner:", deployedContracts.NodePartner);
   
-  console.log("\n=== Deploying MarketMaker ===");
+  // ==========================================
+  // 5. Deploy MarketMaker
+  // ==========================================
+  console.log("\n=== [5/9] Deploying MarketMaker ===");
   const MarketMaker = await hre.ethers.getContractFactory("MarketMaker");
-  const marketMaker = await MarketMaker.deploy(CONFIG.USDT, tftAddress);
+  const marketMaker = await MarketMaker.deploy(
+    CONFIG.USDT,
+    deployedContracts.TradeFutureToken
+  );
   await marketMaker.waitForDeployment();
-  const marketMakerAddress = await marketMaker.getAddress();
-  console.log("MarketMaker deployed to:", marketMakerAddress);
+  deployedContracts.MarketMaker = await marketMaker.getAddress();
+  console.log("MarketMaker:", deployedContracts.MarketMaker);
   
-  // Configure contract relationships
+  // ==========================================
+  // 6. Deploy VIPSystem
+  // ==========================================
+  console.log("\n=== [6/9] Deploying VIPSystem ===");
+  const VIPSystem = await hre.ethers.getContractFactory("VIPSystem");
+  const vipSystem = await VIPSystem.deploy(
+    CONFIG.USDT,
+    deployedContracts.TradeFutureToken,
+    deployedContracts.NodePartner,
+    deployedContracts.MarketMaker,
+    CONFIG.operationsWallet,
+    deployedContracts.InsurancePool
+  );
+  await vipSystem.waitForDeployment();
+  deployedContracts.VIPSystem = await vipSystem.getAddress();
+  console.log("VIPSystem:", deployedContracts.VIPSystem);
+  
+  // ==========================================
+  // 7. Deploy TeamVesting
+  // ==========================================
+  console.log("\n=== [7/9] Deploying TeamVesting ===");
+  const TeamVesting = await hre.ethers.getContractFactory("TeamVesting");
+  const teamVesting = await TeamVesting.deploy(
+    deployedContracts.TradeFutureToken
+  );
+  await teamVesting.waitForDeployment();
+  deployedContracts.TeamVesting = await teamVesting.getAddress();
+  console.log("TeamVesting:", deployedContracts.TeamVesting);
+  
+  // ==========================================
+  // 8. Deploy AutoBurn (lpToken will be set later)
+  // ==========================================
+  console.log("\n=== [8/9] Deploying AutoBurn ===");
+  const AutoBurn = await hre.ethers.getContractFactory("AutoBurn");
+  const autoBurn = await AutoBurn.deploy(
+    deployedContracts.TradeFutureToken,
+    CONFIG.USDT,
+    hre.ethers.ZeroAddress // LP token will be set after adding liquidity
+  );
+  await autoBurn.waitForDeployment();
+  deployedContracts.AutoBurn = await autoBurn.getAddress();
+  console.log("AutoBurn:", deployedContracts.AutoBurn);
+  
+  // ==========================================
+  // 9. Deploy PhaseControl
+  // ==========================================
+  console.log("\n=== [9/9] Deploying PhaseControl ===");
+  const PhaseControl = await hre.ethers.getContractFactory("PhaseControl");
+  const phaseControl = await PhaseControl.deploy(
+    deployedContracts.TradeFutureToken,
+    deployedContracts.PredictionMarket,
+    deployedContracts.InsurancePool,
+    deployedContracts.NodePartner,
+    deployedContracts.MarketMaker
+  );
+  await phaseControl.waitForDeployment();
+  deployedContracts.PhaseControl = await phaseControl.getAddress();
+  console.log("PhaseControl:", deployedContracts.PhaseControl);
+  
+  // ==========================================
+  // Configure Contract Relationships
+  // ==========================================
   console.log("\n=== Configuring Contract Relationships ===");
   
-  // Set Insurance Pool in Prediction Market
-  await prediction.setInsurancePool(insuranceAddress);
-  console.log("Insurance Pool set in Prediction Market");
+  // Set InsurancePool's PredictionMarket
+  console.log("Setting PredictionMarket in InsurancePool...");
+  await insurance.setPredictionMarket(deployedContracts.PredictionMarket);
   
-  // Set Node Pool in Token
-  await tft.setNodePool(nodePartnerAddress);
-  console.log("Node Pool set in Token");
+  // Set whitelist for all contracts in TFT
+  console.log("Setting whitelist in TradeFutureToken...");
+  const whitelistContracts = [
+    "PredictionMarket",
+    "InsurancePool", 
+    "NodePartner",
+    "MarketMaker",
+    "VIPSystem",
+    "AutoBurn"
+  ];
   
-  // Set Market Maker Pool in Token
-  await tft.setMarketMakerPool(marketMakerAddress);
-  console.log("Market Maker Pool set in Token");
+  for (const contractName of whitelistContracts) {
+    await tft.setWhitelist(deployedContracts[contractName], true);
+    console.log(`  Whitelisted: ${contractName}`);
+  }
   
-  // Set Insurance Pool in Token
-  await tft.setInsurancePool(insuranceAddress);
-  console.log("Insurance Pool set in Token");
-  
-  // Set Prediction Market in Market Maker
-  await marketMaker.setPredictionMarket(predictionAddress);
-  console.log("Prediction Market set in Market Maker");
-  
+  // ==========================================
   // Summary
+  // ==========================================
   console.log("\n========================================");
   console.log("       DEPLOYMENT SUMMARY");
   console.log("========================================");
   console.log("Network:", hre.network.name);
   console.log("Deployer:", deployer.address);
   console.log("----------------------------------------");
-  console.log("TradeFutureToken:", tftAddress);
-  console.log("PredictionMarket:", predictionAddress);
-  console.log("InsurancePool:   ", insuranceAddress);
-  console.log("NodePartner:     ", nodePartnerAddress);
-  console.log("MarketMaker:     ", marketMakerAddress);
+  for (const [name, address] of Object.entries(deployedContracts)) {
+    console.log(`${name}: ${address}`);
+  }
   console.log("----------------------------------------");
-  console.log("USDT:            ", CONFIG.USDT);
-  console.log("Round Duration:  ", CONFIG.ROUND_DURATION, "seconds");
-  console.log("Insurance %:     ", CONFIG.INSURANCE_PERCENTAGE, "%");
+  console.log("USDT:", CONFIG.USDT);
   console.log("========================================\n");
   
   // Save deployment info
@@ -123,17 +202,11 @@ async function main() {
   const deploymentInfo = {
     network: hre.network.name,
     deployer: deployer.address,
-    contracts: {
-      TradeFutureToken: tftAddress,
-      PredictionMarket: predictionAddress,
-      InsurancePool: insuranceAddress,
-      NodePartner: nodePartnerAddress,
-      MarketMaker: marketMakerAddress,
-    },
+    contracts: deployedContracts,
     config: {
       USDT: CONFIG.USDT,
-      roundDuration: CONFIG.ROUND_DURATION,
-      insurancePercentage: CONFIG.INSURANCE_PERCENTAGE,
+      teamVestingAmount: CONFIG.teamVestingAmount.toString(),
+      teamVestingMonths: CONFIG.teamVestingMonths,
     },
     timestamp: new Date().toISOString(),
   };
