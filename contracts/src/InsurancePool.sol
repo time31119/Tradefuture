@@ -85,6 +85,17 @@ contract InsurancePool is Ownable, ReentrancyGuard {
     }
     
     /**
+     * @notice Notify the pool that USDT has been transferred directly
+     * @dev Called by prediction market after transferring USDT directly
+     */
+    function notifyDeposit(uint256 _amount) external onlyPredictionMarket {
+        require(_amount > 0, "Amount must be > 0");
+        totalUSDTDeposited += _amount;
+        currentRoundInsurance += _amount;
+        emit USDTDeposited(msg.sender, _amount);
+    }
+    
+    /**
      * @notice Buy TFT with pool's USDT (simulated - in production would use DEX)
      * @dev In production, this would interact with PancakeSwap or similar DEX
      */

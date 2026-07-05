@@ -6,6 +6,10 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
+interface IInsurancePool {
+    function notifyDeposit(uint256 amount) external;
+}
+
 /**
  * @title PredictionMarket
  * @notice 5-minute BTC price prediction market
@@ -217,6 +221,7 @@ contract PredictionMarket is Ownable, ReentrancyGuard {
         // Send insurance amount to insurance pool
         if (insuranceAmount > 0) {
             usdt.safeTransfer(insurancePool, insuranceAmount);
+            IInsurancePool(insurancePool).notifyDeposit(insuranceAmount);
         }
         
         emit BetPlaced(msg.sender, currentRoundId, _direction, betAmount, insuranceAmount);
