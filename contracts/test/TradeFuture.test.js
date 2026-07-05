@@ -19,9 +19,7 @@ describe("TradeFuture Contracts", function () {
     token = await TradeFutureToken.deploy(
       owner.address, // _nodeDividendWallet
       owner.address, // _operationsWallet
-      owner.address, // _marketMakerWallet
-      owner.address, // _levelRewardWallet
-      owner.address  // _liquidityReturnWallet
+      owner.address  // _marketMakerWallet
     );
     await token.waitForDeployment();
 

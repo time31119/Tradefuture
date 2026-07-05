@@ -32,15 +32,9 @@ async function main() {
   console.log("\n=== Deploying TradeFutureToken ===");
   const TradeFutureToken = await hre.ethers.getContractFactory("TradeFutureToken");
   const tft = await TradeFutureToken.deploy(
-    CONFIG.TOKEN_NAME,
-    CONFIG.TOKEN_SYMBOL,
-    CONFIG.INITIAL_SUPPLY,
-    CONFIG.BURN_ADDRESS,
-    CONFIG.BURN_RATE,
-    CONFIG.NODE_POOL_RATE,
-    CONFIG.OPERATIONS_RATE,
-    CONFIG.MARKET_MAKER_RATE,
-    CONFIG.INSURANCE_RATE
+    deployer.address, // _nodeDividendWallet (will be updated to node contract after deployment)
+    deployer.address, // _operationsWallet
+    deployer.address  // _marketMakerWallet (will be updated to market maker contract after deployment)
   );
   await tft.waitForDeployment();
   const tftAddress = await tft.getAddress();

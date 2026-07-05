@@ -76,14 +76,16 @@ contract TradeFutureToken is ERC20, ERC20Burnable, Ownable, ReentrancyGuard {
     // Tax rate: 6% (600 basis points)
     uint256 public constant TAX_RATE = 600; // 6% in basis points (10000 = 100%)
     
-    // Tax distribution (percentages of the tax, sum to 10000 = 100%)
-    uint256 public constant NODE_DIVIDEND_RATE = 300;    // 3% of tax
-    uint256 public constant OPERATIONS_RATE = 100;       // 1% of tax
-    uint256 public constant MARKET_MAKER_RATE = 100;     // 1% of tax
-    uint256 public constant BURN_RATE = 500;             // 5% of tax
-    uint256 public constant LEVEL_REWARD_RATE = 2000;    // 20% of tax
-    uint256 public constant DIRECT_REFERRAL_RATE = 5000; // 50% of tax
-    uint256 public constant LIQUIDITY_RETURN_RATE = 2000; // 20% of tax
+    // Tax distribution (percentages of the total amount, sum to 600 = 6%)
+    // Total tax = 6%, distributed as:
+    // - Node dividend: 3% (50% of tax)
+    // - Operations: 1% (16.67% of tax)
+    // - Market maker: 1% (16.67% of tax)
+    // - Burn: 1% (16.67% of tax)
+    uint256 public constant NODE_DIVIDEND_RATE = 300;    // 3% of total amount (50% of 6% tax)
+    uint256 public constant OPERATIONS_RATE = 100;       // 1% of total amount (16.67% of 6% tax)
+    uint256 public constant MARKET_MAKER_RATE = 100;     // 1% of total amount (16.67% of 6% tax)
+    uint256 public constant BURN_RATE = 100;             // 1% of total amount (16.67% of 6% tax)
     
     // Wallet addresses
     address public nodeDividendWallet;
@@ -123,21 +125,15 @@ contract TradeFutureToken is ERC20, ERC20Burnable, Ownable, ReentrancyGuard {
     constructor(
         address _nodeDividendWallet,
         address _operationsWallet,
-        address _marketMakerWallet,
-        address _levelRewardWallet,
-        address _liquidityReturnWallet
+        address _marketMakerWallet
     ) ERC20("TradeFuture Token", "TFT") Ownable(msg.sender) {
         require(_nodeDividendWallet != address(0), "Invalid node wallet");
         require(_operationsWallet != address(0), "Invalid operations wallet");
         require(_marketMakerWallet != address(0), "Invalid market maker wallet");
-        require(_levelRewardWallet != address(0), "Invalid level reward wallet");
-        require(_liquidityReturnWallet != address(0), "Invalid liquidity wallet");
         
         nodeDividendWallet = _nodeDividendWallet;
         operationsWallet = _operationsWallet;
         marketMakerWallet = _marketMakerWallet;
-        levelRewardWallet = _levelRewardWallet;
-        liquidityReturnWallet = _liquidityReturnWallet;
         
         // Mint initial supply: 11,000,000 TFT
         _mint(msg.sender, 11_000_000 * 10 ** decimals());
@@ -169,9 +165,7 @@ contract TradeFutureToken is ERC20, ERC20Burnable, Ownable, ReentrancyGuard {
     function updateWallets(
         address _nodeDividendWallet,
         address _operationsWallet,
-        address _marketMakerWallet,
-        address _levelRewardWallet,
-        address _liquidityReturnWallet
+        address _marketMakerWallet
     ) external onlyOwner {
         if (_nodeDividendWallet != address(0)) {
             nodeDividendWallet = _nodeDividendWallet;
@@ -184,14 +178,6 @@ contract TradeFutureToken is ERC20, ERC20Burnable, Ownable, ReentrancyGuard {
         if (_marketMakerWallet != address(0)) {
             marketMakerWallet = _marketMakerWallet;
             emit WalletUpdated("marketMaker", _marketMakerWallet);
-        }
-        if (_levelRewardWallet != address(0)) {
-            levelRewardWallet = _levelRewardWallet;
-            emit WalletUpdated("levelReward", _levelRewardWallet);
-        }
-        if (_liquidityReturnWallet != address(0)) {
-            liquidityReturnWallet = _liquidityReturnWallet;
-            emit WalletUpdated("liquidityReturn", _liquidityReturnWallet);
         }
     }
     
@@ -214,6 +200,11 @@ contract TradeFutureToken is ERC20, ERC20Burnable, Ownable, ReentrancyGuard {
     
     /**
      * @notice Internal transfer with tax calculation and distribution
+     * Tax = 6% total, distributed as:
+     * - Node dividend: 3% (50% of tax)
+     * - Operations: 1% (16.67% of tax)
+     * - Market maker: 1% (16.67% of tax)
+     * - Burn: 1% (16.67% of tax)
      */
     function _transferWithTax(address from, address to, uint256 amount) internal {
         // No tax for owner, contract itself, or when trading is disabled
@@ -224,36 +215,18 @@ contract TradeFutureToken is ERC20, ERC20Burnable, Ownable, ReentrancyGuard {
                        to != address(this);
         
         if (applyTax && amount > 0) {
-            uint256 totalTax = (amount * TAX_RATE) / 10000;
+            // Calculate tax portions directly from amount (rates are in basis points of total amount)
+            uint256 nodeDividend = (amount * NODE_DIVIDEND_RATE) / 10000;    // 3%
+            uint256 operations = (amount * OPERATIONS_RATE) / 10000;         // 1%
+            uint256 marketMaker = (amount * MARKET_MAKER_RATE) / 10000;      // 1%
+            uint256 burnAmount = (amount * BURN_RATE) / 10000;               // 1%
+            uint256 totalTax = nodeDividend + operations + marketMaker + burnAmount; // 6%
             
             if (totalTax > 0) {
-                // Calculate each portion
-                uint256 nodeDividend = (totalTax * NODE_DIVIDEND_RATE) / 10000;
-                uint256 operations = (totalTax * OPERATIONS_RATE) / 10000;
-                uint256 marketMaker = (totalTax * MARKET_MAKER_RATE) / 10000;
-                uint256 burnAmount = (totalTax * BURN_RATE) / 10000;
-                uint256 levelReward = (totalTax * LEVEL_REWARD_RATE) / 10000;
-                uint256 liquidityReturn = (totalTax * LIQUIDITY_RETURN_RATE) / 10000;
-                
-                // Direct referral goes to referrer
-                uint256 directReferral = (totalTax * DIRECT_REFERRAL_RATE) / 10000;
-                address referrer = referrers[from];
-                
-                // Transfer tax portions
+                // Transfer tax portions to respective wallets
                 super._transfer(from, nodeDividendWallet, nodeDividend);
                 super._transfer(from, operationsWallet, operations);
                 super._transfer(from, marketMakerWallet, marketMaker);
-                super._transfer(from, levelRewardWallet, levelReward);
-                super._transfer(from, liquidityReturnWallet, liquidityReturn);
-                
-                // Handle direct referral
-                if (referrer != address(0) && directReferral > 0) {
-                    super._transfer(from, referrer, directReferral);
-                    directReferralRewards[referrer] += directReferral;
-                } else if (directReferral > 0) {
-                    // If no referrer, send to level reward wallet
-                    super._transfer(from, levelRewardWallet, directReferral);
-                }
                 
                 // Burn - burn from sender's balance
                 if (burnAmount > 0) {
@@ -271,9 +244,9 @@ contract TradeFutureToken is ERC20, ERC20Burnable, Ownable, ReentrancyGuard {
                     operations,
                     marketMaker,
                     burnAmount,
-                    levelReward,
-                    directReferral,
-                    liquidityReturn
+                    0, // levelReward (removed)
+                    0, // directReferral (removed)
+                    0  // liquidityReturn (removed)
                 );
                 
                 return;
@@ -293,9 +266,6 @@ contract TradeFutureToken is ERC20, ERC20Burnable, Ownable, ReentrancyGuard {
         uint256 operations,
         uint256 marketMaker,
         uint256 burnAmount,
-        uint256 levelReward,
-        uint256 directReferral,
-        uint256 liquidityReturn,
         uint256 amountAfterTax
     ) {
         totalTax = (amount * TAX_RATE) / 10000;
@@ -303,9 +273,6 @@ contract TradeFutureToken is ERC20, ERC20Burnable, Ownable, ReentrancyGuard {
         operations = (totalTax * OPERATIONS_RATE) / 10000;
         marketMaker = (totalTax * MARKET_MAKER_RATE) / 10000;
         burnAmount = (totalTax * BURN_RATE) / 10000;
-        levelReward = (totalTax * LEVEL_REWARD_RATE) / 10000;
-        directReferral = (totalTax * DIRECT_REFERRAL_RATE) / 10000;
-        liquidityReturn = (totalTax * LIQUIDITY_RETURN_RATE) / 10000;
         amountAfterTax = amount - totalTax;
     }
     

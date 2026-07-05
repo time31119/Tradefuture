@@ -454,8 +454,8 @@
       ]
     },
     "/workspace/projects/contracts/src/TradeFutureToken.sol": {
-      "lastModificationDate": 1783231236137,
-      "contentHash": "c17814d14d64d8726fc6caed7d57dced",
+      "lastModificationDate": 1783232281806,
+      "contentHash": "d75d2f3dcd476bf99820311890ed0ce4",
       "sourceName": "src/TradeFutureToken.sol",
       "solcConfig": {
         "version": "0.8.24",
