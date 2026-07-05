@@ -610,8 +610,8 @@
       ]
     },
     "/workspace/projects/contracts/src/PredictionMarket.sol": {
-      "lastModificationDate": 1783234437961,
-      "contentHash": "1f0b97d50a9270aa206b4e2856e988d9",
+      "lastModificationDate": 1783235929171,
+      "contentHash": "acc096c69efb795552f862a7256e4b75",
       "sourceName": "src/PredictionMarket.sol",
       "solcConfig": {
         "version": "0.8.24",

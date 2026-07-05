@@ -228,7 +228,7 @@ describe("TradeFuture DApp", function () {
     });
 
     it("Should reject bets below minimum amount", async function () {
-      const smallBet = ethers.parseUnits("5", 6); // 5 USDT < 10 USDT minimum
+      const smallBet = ethers.parseUnits("0.5", 6); // 0.5 USDT < 1 USDT minimum
       
       // Set start price for round 1
       await predictionMarket.connect(owner).setRoundStartPrice(ethers.parseUnits("65000", 8));

@@ -45,8 +45,8 @@ contract PredictionMarket is Ownable, ReentrancyGuard {
     // Insurance rate: 20% (2000 basis points)
     uint256 public constant INSURANCE_RATE = 2000;
     
-    // Minimum bet amount: 10 USDT (6 decimals)
-    uint256 public constant MIN_BET_AMOUNT = 10e6;
+    // Minimum bet amount: 1 USDT (6 decimals)
+    uint256 public constant MIN_BET_AMOUNT = 1e6;
     
     // Round structure
     struct Round {
