@@ -1,256 +1,217 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
+  StyleSheet,
   ScrollView,
   TouchableOpacity,
-  StyleSheet,
-  TextInput,
-  Alert,
   ActivityIndicator,
+  TextInput,
+  RefreshControl,
   Dimensions,
-  Modal,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { Screen } from '@/components/Screen';
-import { useWallet } from '@/contexts/WalletContext';
-import { useFocusEffect } from 'expo-router';
-import { useSafeRouter } from '@/hooks/useSafeRouter';
 import { COLORS } from '@/utils/theme';
-// Chart data is rendered using simple bar visualization
+import { useSafeRouter } from '@/hooks/useSafeRouter';
+import { useFocusEffect } from 'expo-router';
 
-const EXPO_PUBLIC_BACKEND_BASE_URL = process.env.EXPO_PUBLIC_BACKEND_BASE_URL || 'http://localhost:9091';
-const { width } = Dimensions.get('window');
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const API_BASE = process.env.EXPO_PUBLIC_BACKEND_BASE_URL || 'http://localhost:9091';
+const DEVICE_ID = 'device_' + Math.random().toString(36).substr(2, 9);
 
-interface Prediction {
+interface Round {
   id: number;
-  time: string;
-  direction: 'up' | 'down';
-  amount: number;
+  roundId: string;
   status: string;
-  profit: number;
-  round: number;
-}
-
-interface PredictionData {
-  predictions: Prediction[];
-  currentRound: number;
-  timeLeftSeconds: number;
-  oddsUp: number;
-  oddsDown: number;
-  participationCount: number;
-  maxParticipation: number;
-  isVIP: boolean;
-  insurancePoolBalance: number;
-  roundInsuranceAmount: number;
-  usdtBalance: number;
-}
-
-interface KlineData {
-  timestamp: number;
-  open: number;
-  high: number;
-  low: number;
-  close: number;
-  volume: number;
-}
-
-interface BtcPrice {
-  price: number;
-  change24h: number;
-  high24h: number;
-  low24h: number;
+  startTime: number;
+  endTime: number;
+  basePrice: string;
+  closePrice: string;
+  totalAmount: string;
+  upAmount: string;
+  downAmount: string;
+  winnerSide: string;
+  insurancePool: string;
+  userBet?: {
+    side: string;
+    amount: string;
+    claimed: boolean;
+    payout: string;
+  };
 }
 
 export default function PredictScreen() {
-  const { isConnected, connect } = useWallet();
   const router = useSafeRouter();
-  const [data, setData] = useState<PredictionData | null>(null);
-  const [direction, setDirection] = useState<'up' | 'down'>('up');
-  const [amount, setAmount] = useState('');
-  const [filter, setFilter] = useState('all');
-  const [submitting, setSubmitting] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [btcPrice, setBtcPrice] = useState<BtcPrice | null>(null);
-  const [klines, setKlines] = useState<KlineData[]>([]);
-  const [countdown, setCountdown] = useState(0);
-  const [confirmModalVisible, setConfirmModalVisible] = useState(false);
-  const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [currentRound, setCurrentRound] = useState<Round | null>(null);
+  const [selectedSide, setSelectedSide] = useState<'up' | 'down' | null>(null);
+  const [amount, setAmount] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [activeTab, setActiveTab] = useState<'current' | 'history' | 'rules'>('current');
+  const [myVouchers, setMyVouchers] = useState<any[]>([]);
+  const [myHistory, setMyHistory] = useState<any[]>([]);
+  const [timeLeft, setTimeLeft] = useState(0);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const fetchData = useCallback(async () => {
+  const fetchRounds = async () => {
     try {
-      const res = await fetch(`${EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/predictions`);
-      const result = await res.json();
-      if (result.success) {
-        setData(result.data);
-        setCountdown(result.data.timeLeftSeconds);
+      const res = await fetch(`${API_BASE}/api/v1/rounds/current?deviceId=${DEVICE_ID}`);
+      const data = await res.json();
+      if (data.current) {
+        setCurrentRound(data.current);
+        const endTime = data.current.endTime ? new Date(data.current.endTime).getTime() : 0;
+        setTimeLeft(Math.max(0, Math.floor((endTime - Date.now()) / 1000)));
       }
+      if (data.vouchers) setMyVouchers(data.vouchers);
     } catch (error) {
-      console.error('Fetch predictions error:', error);
+      console.error('Failed to fetch rounds:', error);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
-  }, []);
+  };
 
-  const fetchBtcPrice = useCallback(async () => {
+  const fetchHistory = async () => {
     try {
-      const res = await fetch(`${EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/btc/price`);
-      const result = await res.json();
-      if (result.success) {
-        setBtcPrice(result.data);
-      }
+      const res = await fetch(`${API_BASE}/api/v1/rounds/history?deviceId=${DEVICE_ID}&limit=20`);
+      const data = await res.json();
+      if (data.rounds) setMyHistory(data.rounds);
     } catch (error) {
-      console.error('Fetch BTC price error:', error);
+      console.error('Failed to fetch history:', error);
     }
-  }, []);
-
-  const fetchKlines = useCallback(async () => {
-    try {
-      const res = await fetch(`${EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/btc/kline?count=20`);
-      const result = await res.json();
-      if (result.success) {
-        setKlines(result.data);
-      }
-    } catch (error) {
-      console.error('Fetch klines error:', error);
-    }
-  }, []);
+  };
 
   useFocusEffect(
     useCallback(() => {
-      fetchData();
-      fetchBtcPrice();
-      fetchKlines();
-    }, [fetchData, fetchBtcPrice, fetchKlines])
+      fetchRounds();
+      fetchHistory();
+    }, [])
   );
 
-  // Countdown timer
   useEffect(() => {
-    if (countdownRef.current) {
-      clearInterval(countdownRef.current);
-    }
-    countdownRef.current = setInterval(() => {
-      setCountdown((prev) => {
-        if (prev <= 1) {
-          fetchData();
-          return 300;
-        }
-        return prev - 1;
-      });
+    fetchRounds();
+    fetchHistory();
+  }, []);
+
+  useEffect(() => {
+    if (timerRef.current) clearInterval(timerRef.current);
+    timerRef.current = setInterval(() => {
+      if (currentRound?.endTime) {
+        const endTime = new Date(currentRound.endTime).getTime();
+        const left = Math.max(0, Math.floor((endTime - Date.now()) / 1000));
+        setTimeLeft(left);
+        if (left === 0) fetchRounds();
+      }
     }, 1000);
     return () => {
-      if (countdownRef.current) {
-        clearInterval(countdownRef.current);
-      }
+      if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [fetchData]);
+  }, [currentRound]);
 
-  // Auto refresh BTC price every 30 seconds
-  useEffect(() => {
-    const interval = setInterval(() => {
-      fetchBtcPrice();
-    }, 30000);
-    return () => clearInterval(interval);
-  }, [fetchBtcPrice]);
-
-  const handleSubmit = async () => {
-    if (!isConnected) {
-      connect();
-      return;
-    }
-    const amountNum = parseFloat(amount);
-    if (!amountNum || amountNum < 1) {
-      Alert.alert('金额无效', '最低投注额为 1 USDT');
-      return;
-    }
-    if (amountNum > (data?.usdtBalance || 0)) {
-      Alert.alert('余额不足', 'USDT余额不足');
-      return;
-    }
-    setConfirmModalVisible(true);
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchRounds();
+    fetchHistory();
   };
 
-  const confirmSubmit = async () => {
-    setConfirmModalVisible(false);
+  const handleBet = async () => {
+    if (!selectedSide || !amount || !currentRound) return;
+    const betAmount = parseFloat(amount);
+    if (betAmount < 1) {
+      alert('最小下注金额为 $1');
+      return;
+    }
+
     setSubmitting(true);
     try {
-      /**
-       * 服务端文件：server/src/index.ts
-       * 接口：POST /api/v1/predictions
-       * Body 参数：direction: string, amount: number
-       */
-      const res = await fetch(`${EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/predictions`, {
+      const res = await fetch(`${API_BASE}/api/v1/rounds/${currentRound.roundId}/bet`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ direction, amount: parseFloat(amount) }),
+        body: JSON.stringify({
+          side: selectedSide,
+          amount: betAmount.toString(),
+          deviceId: DEVICE_ID,
+        }),
       });
-      const result = await res.json();
-      if (result.success) {
+      const data = await res.json();
+      if (data.success) {
+        alert(`下注成功！$${betAmount} ${selectedSide === 'up' ? '涨' : '跌'}`);
+        setSelectedSide(null);
         setAmount('');
-        fetchData();
-        Alert.alert('提交成功', '预测已提交，等待结算！');
+        fetchRounds();
+        fetchHistory();
+      } else {
+        alert(data.error || '下注失败');
       }
     } catch (error) {
-      console.error('Submit prediction error:', error);
-      Alert.alert('提交失败', '请稍后重试');
+      alert('下注失败，请重试');
     } finally {
       setSubmitting(false);
     }
   };
 
-  const handleClaim = async (id: number) => {
+  const handleClaim = async (roundId: string) => {
     try {
-      /**
-       * 服务端文件：server/src/index.ts
-       * 接口：POST /api/v1/predictions/:id/claim
-       * Path 参数：id: number
-       */
-      const res = await fetch(`${EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/predictions/${id}/claim`, {
+      const res = await fetch(`${API_BASE}/api/v1/rounds/${roundId}/claim`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deviceId: DEVICE_ID }),
       });
-      const result = await res.json();
-      if (result.success) {
-        fetchData();
-        Alert.alert('领取成功', '收益已到账！');
+      const data = await res.json();
+      if (data.success) {
+        alert(`领取成功！获得 $${data.payout}`);
+        fetchRounds();
+        fetchHistory();
+      } else {
+        alert(data.error || '领取失败');
       }
     } catch (error) {
-      console.error('Claim error:', error);
+      alert('领取失败，请重试');
     }
   };
 
   const formatTime = (seconds: number) => {
-    const m = Math.floor(seconds / 60).toString().padStart(2, '0');
-    const s = (seconds % 60).toString().padStart(2, '0');
-    return `${m}:${s}`;
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
-  const formatPrice = (price: number) => {
-    return price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const getStatusBadge = () => {
+    if (!currentRound) return null;
+    const status = currentRound.status;
+    if (status === 'betting') {
+      return (
+        <View style={styles.statusBadge}>
+          <View style={[styles.statusDot, { backgroundColor: '#22C55E' }]} />
+          <Text style={styles.statusText}>进行中</Text>
+          <Text style={styles.statusTime}>{formatTime(timeLeft)}</Text>
+        </View>
+      );
+    } else if (status === 'locked') {
+      return (
+        <View style={[styles.statusBadge, { backgroundColor: 'rgba(245, 158, 11, 0.15)' }]}>
+          <View style={[styles.statusDot, { backgroundColor: '#F59E0B' }]} />
+          <Text style={[styles.statusText, { color: '#F59E0B' }]}>已锁定</Text>
+        </View>
+      );
+    } else if (status === 'completed') {
+      return (
+        <View style={[styles.statusBadge, { backgroundColor: 'rgba(34, 197, 94, 0.15)' }]}>
+          <View style={[styles.statusDot, { backgroundColor: '#22C55E' }]} />
+          <Text style={[styles.statusText, { color: '#22C55E' }]}>已结算</Text>
+        </View>
+      );
+    }
+    return null;
   };
-
-  const currentOdds = direction === 'up' ? (data?.oddsUp || 1.8) : (data?.oddsDown || 2.2);
-  const amountNum = parseFloat(amount) || 0;
-  const estimatedReturn = (amountNum * currentOdds).toFixed(2);
-  const netProfit = (amountNum * currentOdds - amountNum).toFixed(2);
-  const insuranceAmount = (amountNum * 0.2).toFixed(2);
-
-  const filteredPredictions = data?.predictions.filter(p => {
-    if (filter === 'all') return true;
-    return p.status === filter;
-  }) || [];
-
-  const quickAmounts = [50, 100, 500, 1000];
-
-  const chartData = klines.map((k) => ({
-    value: k.close,
-    label: new Date(k.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-  }));
 
   if (loading) {
     return (
-      <Screen backgroundColor={COLORS.background} statusBarStyle="light">
+      <Screen>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={COLORS.primary} />
         </View>
@@ -258,1039 +219,669 @@ export default function PredictScreen() {
     );
   }
 
+  const upAmount = currentRound?.upAmount ? parseFloat(currentRound.upAmount) : 0;
+  const downAmount = currentRound?.downAmount ? parseFloat(currentRound.downAmount) : 0;
+  const totalAmount = upAmount + downAmount;
+  const upPercent = totalAmount > 0 ? (upAmount / totalAmount) * 100 : 50;
+  const downPercent = totalAmount > 0 ? (downAmount / totalAmount) * 100 : 50;
+
   return (
-    <Screen backgroundColor={COLORS.background} statusBarStyle="light" safeAreaEdges={['left', 'right']}>
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Title Bar with Countdown */}
-        <View style={styles.titleBar}>
-          <View>
-            <Text style={styles.title}>BTC/USDT 预测</Text>
-            <Text style={styles.subtitle}>5分钟K线 · 第 #{data?.currentRound} 期</Text>
+    <Screen>
+      <View style={styles.container}>
+        {/* Header */}
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+            <FontAwesome6 name="chevron-left" size={20} color={COLORS.textPrimary} />
+          </TouchableOpacity>
+          <View style={styles.headerTitle}>
+            <FontAwesome6 name="bitcoin" size={18} color="#F59E0B" />
+            <Text style={styles.headerTitleText}>BTC 5分钟涨跌</Text>
           </View>
-          <View style={styles.timerBadge}>
-            <FontAwesome6 name="clock" size={12} color={COLORS.primary} />
-            <Text style={styles.timerText}>{formatTime(countdown)}</Text>
-          </View>
+          {getStatusBadge()}
         </View>
 
-        {/* BTC Price Card */}
-        {btcPrice && (
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Price Card */}
           <View style={styles.priceCard}>
-            <View style={styles.priceHeader}>
-              <View>
-                <Text style={styles.priceLabel}>BTC/USD</Text>
-                <Text style={styles.priceValue}>${formatPrice(btcPrice.price)}</Text>
-              </View>
-              <View style={[
-                styles.changeBadge,
-                { backgroundColor: btcPrice.change24h >= 0 ? 'rgba(0,200,151,0.15)' : 'rgba(255,107,107,0.15)' }
-              ]}>
-                <FontAwesome6
-                  name={btcPrice.change24h >= 0 ? 'arrow-up' : 'arrow-down'}
-                  size={12}
-                  color={btcPrice.change24h >= 0 ? COLORS.success : COLORS.danger}
-                />
-                <Text style={[
-                  styles.changeText,
-                  { color: btcPrice.change24h >= 0 ? COLORS.success : COLORS.danger }
-                ]}>
-                  {btcPrice.change24h >= 0 ? '+' : ''}{btcPrice.change24h.toFixed(2)}%
+            <View style={styles.priceRow}>
+              <Text style={styles.priceLabel}>基准价</Text>
+              <Text style={styles.priceValue}>
+                ${currentRound?.basePrice ? parseFloat(currentRound.basePrice).toFixed(2) : '--'}
+              </Text>
+            </View>
+            {currentRound?.closePrice && (
+              <View style={styles.priceRow}>
+                <Text style={styles.priceLabel}>收盘价</Text>
+                <Text style={[styles.priceValue, { color: '#22C55E' }]}>
+                  ${parseFloat(currentRound.closePrice).toFixed(2)}
                 </Text>
-              </View>
-            </View>
-            <View style={styles.priceRange}>
-              <View style={styles.rangeItem}>
-                <Text style={styles.rangeLabel}>24h最高</Text>
-                <Text style={styles.rangeValue}>${formatPrice(btcPrice.high24h)}</Text>
-              </View>
-              <View style={styles.rangeDivider} />
-              <View style={styles.rangeItem}>
-                <Text style={styles.rangeLabel}>24h最低</Text>
-                <Text style={styles.rangeValue}>${formatPrice(btcPrice.low24h)}</Text>
-              </View>
-            </View>
-            {/* K-Line Chart - Real-time Animation */}
-            {chartData.length > 0 && (
-              <View style={styles.chartContainer}>
-                <View style={styles.klineChart}>
-                  {chartData.slice(-20).map((item, index) => {
-                    const allData = chartData.slice(-20);
-                    const maxVal = Math.max(...allData.map(d => d.value));
-                    const minVal = Math.min(...allData.map(d => d.value));
-                    const range = maxVal - minVal || 1;
-                    const height = ((item.value - minVal) / range) * 70 + 15;
-                    const prevValue = index > 0 ? allData[index - 1].value : item.value;
-                    const isUp = item.value >= prevValue;
-                    const isLast = index === allData.length - 1;
-                    return (
-                      <View key={index} style={styles.klineItem}>
-                        <View style={[
-                          styles.klineBar,
-                          {
-                            height,
-                            backgroundColor: isUp ? 'rgba(0,200,151,0.8)' : 'rgba(255,107,107,0.8)',
-                            opacity: isLast ? 1 : 0.7,
-                          }
-                        ]}>
-                          {isLast && (
-                            <View style={[
-                              styles.klinePulse,
-                              { backgroundColor: isUp ? COLORS.success : COLORS.danger }
-                            ]} />
-                          )}
-                        </View>
-                      </View>
-                    );
-                  })}
-                </View>
               </View>
             )}
           </View>
-        )}
 
-        {/* Betting Panel */}
-        <View style={styles.betPanel}>
-          <Text style={styles.betLabel}>选择方向</Text>
-          <View style={styles.directionRow}>
+          {/* Up/Down Buttons */}
+          <View style={styles.betButtonsContainer}>
             <TouchableOpacity
-              style={[styles.directionBtn, direction === 'up' && styles.directionBtnActiveUp]}
-              onPress={() => setDirection('up')}
+              style={[
+                styles.betButton,
+                selectedSide === 'up' && styles.betButtonSelectedUp,
+                !selectedSide && styles.betButtonUp,
+              ]}
+              onPress={() => setSelectedSide('up')}
+              disabled={currentRound?.status !== 'betting'}
             >
-              <LinearGradient
-                colors={direction === 'up' ? ['rgba(0,200,151,0.2)', 'rgba(0,200,151,0.05)'] : ['transparent', 'transparent']}
-                style={styles.directionGradient}
-              >
-                <FontAwesome6 name="arrow-trend-up" size={22} color={direction === 'up' ? COLORS.success : COLORS.textSecondary} />
-                <Text style={[styles.directionText, { color: direction === 'up' ? COLORS.success : COLORS.textSecondary }]}>
-                  看涨
-                </Text>
-                <Text style={[styles.oddsText, { color: direction === 'up' ? COLORS.success : COLORS.textSecondary }]}>
-                  {data?.oddsUp?.toFixed(2)}x
-                </Text>
-              </LinearGradient>
+              <FontAwesome6 name="arrow-trend-up" size={28} color={selectedSide === 'up' ? '#FFF' : '#22C55E'} />
+              <Text style={[styles.betButtonText, { color: selectedSide === 'up' ? '#FFF' : '#22C55E' }]}>
+                涨
+              </Text>
+              <Text style={[styles.betButtonSubtext, { color: selectedSide === 'up' ? 'rgba(255,255,255,0.8)' : '#9CA3AF' }]}>
+                已投 ${upAmount.toFixed(2)}
+              </Text>
             </TouchableOpacity>
+
             <TouchableOpacity
-              style={[styles.directionBtn, direction === 'down' && styles.directionBtnActiveDown]}
-              onPress={() => setDirection('down')}
+              style={[
+                styles.betButton,
+                selectedSide === 'down' && styles.betButtonSelectedDown,
+                !selectedSide && styles.betButtonDown,
+              ]}
+              onPress={() => setSelectedSide('down')}
+              disabled={currentRound?.status !== 'betting'}
             >
-              <LinearGradient
-                colors={direction === 'down' ? ['rgba(255,107,107,0.2)', 'rgba(255,107,107,0.05)'] : ['transparent', 'transparent']}
-                style={styles.directionGradient}
-              >
-                <FontAwesome6 name="arrow-trend-down" size={22} color={direction === 'down' ? COLORS.danger : COLORS.textSecondary} />
-                <Text style={[styles.directionText, { color: direction === 'down' ? COLORS.danger : COLORS.textSecondary }]}>
-                  看跌
-                </Text>
-                <Text style={[styles.oddsText, { color: direction === 'down' ? COLORS.danger : COLORS.textSecondary }]}>
-                  {data?.oddsDown?.toFixed(2)}x
-                </Text>
-              </LinearGradient>
+              <FontAwesome6 name="arrow-trend-down" size={28} color={selectedSide === 'down' ? '#FFF' : '#EF4444'} />
+              <Text style={[styles.betButtonText, { color: selectedSide === 'down' ? '#FFF' : '#EF4444' }]}>
+                跌
+              </Text>
+              <Text style={[styles.betButtonSubtext, { color: selectedSide === 'down' ? 'rgba(255,255,255,0.8)' : '#9CA3AF' }]}>
+                已投 ${downAmount.toFixed(2)}
+              </Text>
             </TouchableOpacity>
           </View>
 
-          {/* Amount Input with Balance */}
-          <View style={styles.amountHeader}>
-            <Text style={styles.betLabel}>投注金额 (USDT)</Text>
-            <View style={styles.balanceRow}>
-              <Text style={styles.balanceLabel}>余额:</Text>
-              <Text style={styles.balanceValue}>{data?.usdtBalance?.toFixed(2) || '0.00'}</Text>
-              <TouchableOpacity onPress={() => setAmount((data?.usdtBalance || 0).toString())}>
-                <Text style={styles.maxBtn}>MAX</Text>
-              </TouchableOpacity>
+          {/* Bet Pool Bar */}
+          <View style={styles.poolBar}>
+            <View style={styles.poolBarFill}>
+              <View style={[styles.poolBarUp, { width: `${upPercent}%` }]} />
+              <View style={[styles.poolBarDown, { width: `${downPercent}%` }]} />
+            </View>
+            <View style={styles.poolBarLabels}>
+              <Text style={[styles.poolBarLabel, { color: '#22C55E' }]}>涨 {upPercent.toFixed(0)}%</Text>
+              <Text style={styles.poolBarTotal}>总池: ${totalAmount.toFixed(2)}</Text>
+              <Text style={[styles.poolBarLabel, { color: '#EF4444' }]}>跌 {downPercent.toFixed(0)}%</Text>
             </View>
           </View>
-          <View style={styles.amountInputContainer}>
-            <TextInput
-              style={styles.amountInput}
-              value={amount}
-              onChangeText={setAmount}
-              placeholder="0.00"
-              placeholderTextColor={COLORS.textSecondary}
-              keyboardType="decimal-pad"
-            />
-          </View>
-          <View style={styles.quickAmountRow}>
-            {quickAmounts.map((qa) => (
-              <TouchableOpacity
-                key={qa}
-                style={[styles.quickAmountBtn, parseFloat(amount) === qa && styles.quickAmountBtnActive]}
-                onPress={() => setAmount(qa.toString())}
-              >
-                <Text style={[styles.quickAmountText, parseFloat(amount) === qa && styles.quickAmountTextActive]}>
-                  ${qa}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
 
-          {/* Estimated Return Details */}
-          {amountNum > 0 && (
-            <View style={styles.returnDetails}>
-              <View style={styles.returnRow}>
-                <Text style={styles.returnLabel}>预估赔率</Text>
-                <Text style={styles.returnValue}>{currentOdds.toFixed(2)}x</Text>
+          {/* Amount Input */}
+          {currentRound?.status === 'betting' && selectedSide && (
+            <View style={styles.amountSection}>
+              <Text style={styles.amountLabel}>预测金额（大于$1）</Text>
+              <View style={styles.amountInputContainer}>
+                <Text style={styles.amountCurrency}>$</Text>
+                <TextInput
+                  style={styles.amountInput}
+                  value={amount}
+                  onChangeText={setAmount}
+                  placeholder="0.00"
+                  placeholderTextColor="#6B7280"
+                  keyboardType="decimal-pad"
+                />
               </View>
-              <View style={styles.returnRow}>
-                <Text style={styles.returnLabel}>预估收益</Text>
-                <Text style={styles.returnValueHighlight}>{estimatedReturn} USDT</Text>
+              <View style={styles.quickAmounts}>
+                {[5, 10, 25, 50, 100].map((val) => (
+                  <TouchableOpacity
+                    key={val}
+                    style={styles.quickAmountBtn}
+                    onPress={() => setAmount(val.toString())}
+                  >
+                    <Text style={styles.quickAmountText}>${val}</Text>
+                  </TouchableOpacity>
+                ))}
               </View>
-              <View style={styles.returnRow}>
-                <Text style={styles.returnLabel}>净收益</Text>
-                <Text style={[styles.returnValue, { color: COLORS.success }]}>+{netProfit} USDT</Text>
-              </View>
+              <TouchableOpacity
+                style={styles.submitButton}
+                onPress={handleBet}
+                disabled={submitting || !amount || parseFloat(amount) < 1}
+              >
+                <LinearGradient
+                  colors={['#F59E0B', '#D97706']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.submitGradient}
+                >
+                  <Text style={styles.submitButtonText}>
+                    {submitting ? '提交中...' : `确认${selectedSide === 'up' ? '买涨' : '买跌'} $${amount || '0'}`}
+                  </Text>
+                </LinearGradient>
+              </TouchableOpacity>
             </View>
           )}
 
           {/* Insurance Notice */}
           <View style={styles.insuranceNotice}>
-            <FontAwesome6 name="shield-halved" size={14} color={COLORS.primary} />
-            <View style={styles.insuranceNoticeContent}>
-              <Text style={styles.insuranceNoticeText}>
-                20%投注额注入保险仓 → 买入TFT
-              </Text>
-              {amountNum > 0 && (
-                <Text style={styles.insuranceAmountText}>
-                  本轮注入: {insuranceAmount} USDT
-                </Text>
-              )}
-            </View>
+            <FontAwesome6 name="shield-halved" size={14} color="#F59E0B" />
+            <Text style={styles.insuranceText}>
+              预测失败可获保险仓100%等值TFT赔付
+            </Text>
           </View>
 
-          {/* Submit Button */}
-          <TouchableOpacity
-            style={[styles.submitBtn, submitting && styles.submitBtnDisabled]}
-            onPress={handleSubmit}
-            disabled={submitting}
-          >
-            <LinearGradient
-              colors={isConnected ? COLORS.GRADIENT_PRIMARY : ['#333', '#444']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.submitGradient}
+          {/* Tabs */}
+          <View style={styles.tabs}>
+            <TouchableOpacity
+              style={[styles.tab, activeTab === 'current' && styles.tabActive]}
+              onPress={() => setActiveTab('current')}
             >
-              {submitting ? (
-                <ActivityIndicator color={COLORS.background} />
-              ) : (
-                <Text style={styles.submitText}>
-                  {!isConnected ? '请先连接钱包' : `确认${direction === 'up' ? '看涨' : '看跌'}`}
-                </Text>
-              )}
-            </LinearGradient>
-          </TouchableOpacity>
-        </View>
+              <Text style={[styles.tabText, activeTab === 'current' && styles.tabTextActive]}>
+                当前凭证
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.tab, activeTab === 'history' && styles.tabActive]}
+              onPress={() => setActiveTab('history')}
+            >
+              <Text style={[styles.tabText, activeTab === 'history' && styles.tabTextActive]}>
+                所有记录
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.tab, activeTab === 'rules' && styles.tabActive]}
+              onPress={() => setActiveTab('rules')}
+            >
+              <Text style={[styles.tabText, activeTab === 'rules' && styles.tabTextActive]}>
+                预测规则
+              </Text>
+            </TouchableOpacity>
+          </View>
 
-        {/* Participation Status */}
-        {data && (
-          <View style={styles.statusBar}>
-            {data.isVIP ? (
-              <View style={styles.statusContent}>
-                <View style={styles.vipBadge}>
-                  <FontAwesome6 name="crown" size={12} color={COLORS.primary} />
-                </View>
-                <Text style={styles.statusText}>VIP用户 · 无限次预测</Text>
+          {/* Tab Content */}
+          <View style={styles.tabContent}>
+            {activeTab === 'current' && (
+              <View style={styles.voucherList}>
+                {myVouchers.length === 0 ? (
+                  <View style={styles.emptyState}>
+                    <FontAwesome6 name="receipt" size={40} color="#4B5563" />
+                    <Text style={styles.emptyText}>本期暂无预测凭证或已领取</Text>
+                  </View>
+                ) : (
+                  myVouchers.map((voucher) => (
+                    <View key={voucher.id} style={styles.voucherCard}>
+                      <View style={styles.voucherHeader}>
+                        <View style={styles.voucherSide}>
+                          <FontAwesome6
+                            name={voucher.betSide === 'up' ? 'arrow-trend-up' : 'arrow-trend-down'}
+                            size={16}
+                            color={voucher.betSide === 'up' ? '#22C55E' : '#EF4444'}
+                          />
+                          <Text style={[styles.voucherSideText, { color: voucher.betSide === 'up' ? '#22C55E' : '#EF4444' }]}>
+                            {voucher.betSide === 'up' ? '涨' : '跌'}
+                          </Text>
+                        </View>
+                        <Text style={styles.voucherAmount}>${voucher.betAmount}</Text>
+                      </View>
+                      <View style={styles.voucherFooter}>
+                        <Text style={styles.voucherRound}>#{voucher.roundId}</Text>
+                        {voucher.won && !voucher.claimed && (
+                          <TouchableOpacity style={styles.claimButton} onPress={() => handleClaim(voucher.roundId)}>
+                            <Text style={styles.claimButtonText}>领取</Text>
+                          </TouchableOpacity>
+                        )}
+                        {voucher.claimed && (
+                          <Text style={styles.claimedText}>已领取 +${voucher.payout}</Text>
+                        )}
+                      </View>
+                    </View>
+                  ))
+                )}
               </View>
-            ) : (
-              <View style={styles.statusContent}>
-                <FontAwesome6 name="circle-info" size={14} color={COLORS.textSecondary} />
-                <Text style={styles.statusText}>
-                  本期已参与 {data.participationCount}/{data.maxParticipation} 次
-                </Text>
-                <TouchableOpacity onPress={() => router.push('/profile')}>
-                  <Text style={styles.upgradeText}> 升级VIP →</Text>
-                </TouchableOpacity>
+            )}
+
+            {activeTab === 'history' && (
+              <View style={styles.historyList}>
+                {myHistory.length === 0 ? (
+                  <View style={styles.emptyState}>
+                    <FontAwesome6 name="clock-rotate-left" size={40} color="#4B5563" />
+                    <Text style={styles.emptyText}>暂无预测记录</Text>
+                  </View>
+                ) : (
+                  myHistory.map((round) => (
+                    <View key={round.id} style={styles.historyCard}>
+                      <View style={styles.historyHeader}>
+                        <Text style={styles.historyRound}>#{round.roundId}</Text>
+                        <Text style={[styles.historyResult, {
+                          color: round.winnerSide === 'up' ? '#22C55E' : '#EF4444'
+                        }]}>
+                          {round.winnerSide === 'up' ? '涨胜' : '跌胜'}
+                        </Text>
+                      </View>
+                      {round.userBet && (
+                        <View style={styles.historyBet}>
+                          <Text style={styles.historyBetText}>
+                            我的下注: {round.userBet.side === 'up' ? '涨' : '跌'} ${round.userBet.amount}
+                          </Text>
+                          <Text style={[styles.historyBetResult, {
+                            color: round.userBet.won ? '#22C55E' : '#EF4444'
+                          }]}>
+                            {round.userBet.won ? `+${round.userBet.payout}` : `-${round.userBet.amount}`}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                  ))
+                )}
+              </View>
+            )}
+
+            {activeTab === 'rules' && (
+              <View style={styles.rulesContent}>
+                <View style={styles.ruleItem}>
+                  <Text style={styles.ruleTitle}>预测周期</Text>
+                  <Text style={styles.ruleDesc}>每5分钟一期，倒计时结束自动锁定</Text>
+                </View>
+                <View style={styles.ruleItem}>
+                  <Text style={styles.ruleTitle}>手续费</Text>
+                  <Text style={styles.ruleDesc}>每笔下注收取3%平台手续费</Text>
+                </View>
+                <View style={styles.ruleItem}>
+                  <Text style={styles.ruleTitle}>赢家分配</Text>
+                  <Text style={styles.ruleDesc}>扣除手续费后80%进入赢家奖池</Text>
+                </View>
+                <View style={styles.ruleItem}>
+                  <Text style={styles.ruleTitle}>保险赔付</Text>
+                  <Text style={styles.ruleDesc}>输家获得保险仓100%等值TFT赔付</Text>
+                </View>
+                <View style={styles.ruleItem}>
+                  <Text style={styles.ruleTitle}>最低下注</Text>
+                  <Text style={styles.ruleDesc}>最小下注金额 $1</Text>
+                </View>
               </View>
             )}
           </View>
-        )}
-
-        {/* Insurance Pool Status */}
-        {data && (
-          <View style={styles.insurancePoolCard}>
-            <View style={styles.insurancePoolHeader}>
-              <FontAwesome6 name="shield-halved" size={16} color={COLORS.primary} />
-              <Text style={styles.insurancePoolTitle}>保险仓状态</Text>
-            </View>
-            <View style={styles.insurancePoolRow}>
-              <Text style={styles.insurancePoolLabel}>总余额</Text>
-              <Text style={styles.insurancePoolValue}>{data.insurancePoolBalance?.toLocaleString()} TFT</Text>
-            </View>
-            <View style={styles.insurancePoolRow}>
-              <Text style={styles.insurancePoolLabel}>本轮注入</Text>
-              <Text style={styles.insurancePoolValueHighlight}>{data.roundInsuranceAmount} TFT</Text>
-            </View>
-          </View>
-        )}
-
-        {/* Prediction History */}
-        <View style={styles.historySection}>
-          <Text style={styles.historyTitle}>预测记录</Text>
-          <View style={styles.filterRow}>
-            {(['all', 'pending', 'won', 'claimed'] as const).map((f) => {
-              const labels: Record<string, string> = { all: '全部', pending: '待结算', won: '已获胜', claimed: '已领取' };
-              return (
-                <TouchableOpacity
-                  key={f}
-                  style={[styles.filterBtn, filter === f && styles.filterBtnActive]}
-                  onPress={() => setFilter(f)}
-                >
-                  <Text style={[styles.filterText, filter === f && styles.filterTextActive]}>
-                    {labels[f]}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-
-          {filteredPredictions.length === 0 ? (
-            <View style={styles.emptyState}>
-              <FontAwesome6 name="chart-line" size={32} color={COLORS.textSecondary} />
-              <Text style={styles.emptyText}>暂无预测记录</Text>
-              <TouchableOpacity style={styles.emptyActionBtn} onPress={() => router.push('/predict')}>
-                <Text style={styles.emptyActionText}>去预测</Text>
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <View style={styles.historyList}>
-              {filteredPredictions.map((item) => (
-                <View key={item.id} style={styles.historyItem}>
-                  <View style={styles.historyLeft}>
-                    <View style={[
-                      styles.historyDirection,
-                      { backgroundColor: item.direction === 'up' ? 'rgba(0,200,151,0.15)' : 'rgba(255,107,107,0.15)' }
-                    ]}>
-                      <FontAwesome6
-                        name={item.direction === 'up' ? 'arrow-trend-up' : 'arrow-trend-down'}
-                        size={12}
-                        color={item.direction === 'up' ? COLORS.success : COLORS.danger}
-                      />
-                    </View>
-                    <View>
-                      <Text style={styles.historyTime}>#{item.round} · {item.time}</Text>
-                      <Text style={styles.historyAmount}>${item.amount} USDT</Text>
-                    </View>
-                  </View>
-                  <View style={styles.historyRight}>
-                    <Text style={[
-                      styles.historyStatus,
-                      { color: item.status === 'won' || item.status === 'claimed' ? COLORS.success : item.status === 'lost' ? COLORS.danger : COLORS.primary }
-                    ]}>
-                      {item.status === 'won' ? '获胜' : item.status === 'lost' ? '失败' : item.status === 'claimed' ? '已领取' : '待结算'}
-                    </Text>
-                    {item.status === 'won' && (
-                      <TouchableOpacity style={styles.claimBtn} onPress={() => handleClaim(item.id)}>
-                        <Text style={styles.claimBtnText}>领取</Text>
-                      </TouchableOpacity>
-                    )}
-                    {(item.status === 'won' || item.status === 'claimed') && item.profit > 0 && (
-                      <Text style={[styles.historyProfit, { color: COLORS.success }]}>+${item.profit.toFixed(2)}</Text>
-                    )}
-                  </View>
-                </View>
-              ))}
-            </View>
-          )}
-        </View>
-      </ScrollView>
-
-      {/* Confirm Modal */}
-      <Modal visible={confirmModalVisible} transparent animationType="fade">
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>确认投注</Text>
-              <TouchableOpacity onPress={() => setConfirmModalVisible(false)}>
-                <FontAwesome6 name="xmark" size={20} color={COLORS.textSecondary} />
-              </TouchableOpacity>
-            </View>
-            <View style={styles.modalBody}>
-              <View style={styles.confirmRow}>
-                <Text style={styles.confirmLabel}>方向</Text>
-                <View style={styles.confirmDirectionBadge}>
-                  <FontAwesome6
-                    name={direction === 'up' ? 'arrow-trend-up' : 'arrow-trend-down'}
-                    size={14}
-                    color={direction === 'up' ? COLORS.success : COLORS.danger}
-                  />
-                  <Text style={[styles.confirmDirectionText, { color: direction === 'up' ? COLORS.success : COLORS.danger }]}>
-                    {direction === 'up' ? '看涨' : '看跌'}
-                  </Text>
-                </View>
-              </View>
-              <View style={styles.confirmRow}>
-                <Text style={styles.confirmLabel}>投注金额</Text>
-                <Text style={styles.confirmValue}>{amount} USDT</Text>
-              </View>
-              <View style={styles.confirmRow}>
-                <Text style={styles.confirmLabel}>预估赔率</Text>
-                <Text style={styles.confirmValue}>{currentOdds.toFixed(2)}x</Text>
-              </View>
-              <View style={styles.confirmRow}>
-                <Text style={styles.confirmLabel}>预估收益</Text>
-                <Text style={[styles.confirmValue, { color: COLORS.primary }]}>{estimatedReturn} USDT</Text>
-              </View>
-              <View style={styles.confirmDivider} />
-              <View style={styles.confirmRow}>
-                <Text style={styles.confirmLabel}>保险仓注入</Text>
-                <Text style={styles.confirmValue}>{insuranceAmount} USDT</Text>
-              </View>
-            </View>
-            <View style={styles.modalFooter}>
-              <TouchableOpacity style={styles.modalCancelBtn} onPress={() => setConfirmModalVisible(false)}>
-                <Text style={styles.modalCancelText}>取消</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.modalConfirmBtn} onPress={confirmSubmit}>
-                <LinearGradient
-                  colors={COLORS.GRADIENT_PRIMARY}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={styles.modalConfirmGradient}
-                >
-                  <Text style={styles.modalConfirmText}>确认投注</Text>
-                </LinearGradient>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+        </ScrollView>
+      </View>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.background,
+  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: COLORS.background,
   },
-  scrollView: { flex: 1 },
-  scrollContent: {
-    paddingTop: 56,
-    paddingBottom: 120,
-    paddingHorizontal: 16,
-  },
-  // Title Bar
-  titleBar: {
+  header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: COLORS.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
   },
-  title: {
-    fontSize: 20,
+  backButton: {
+    width: 36,
+    height: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerTitle: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 8,
+  },
+  headerTitleText: {
+    fontSize: 17,
     fontWeight: '700',
     color: COLORS.textPrimary,
+    marginLeft: 8,
   },
-  subtitle: {
-    fontSize: 12,
-    color: COLORS.textSecondary,
-    marginTop: 2,
-  },
-  timerBadge: {
+  statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    backgroundColor: 'rgba(245,166,35,0.15)',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
+    backgroundColor: 'rgba(34, 197, 94, 0.15)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 16,
   },
-  timerText: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: COLORS.primary,
-    fontFamily: 'monospace',
+  statusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
   },
-  // Price Card
+  statusText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#22C55E',
+    marginLeft: 6,
+  },
+  statusTime: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#22C55E',
+    marginLeft: 6,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    padding: 16,
+  },
   priceCard: {
     backgroundColor: COLORS.surface,
     borderRadius: 16,
     padding: 16,
-    borderWidth: 1,
-    borderColor: COLORS.border,
     marginBottom: 16,
   },
-  priceHeader: {
+  priceRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
   },
   priceLabel: {
-    fontSize: 13,
-    color: COLORS.textSecondary,
-    fontWeight: '600',
-    marginBottom: 4,
+    fontSize: 14,
+    color: '#9CA3AF',
   },
   priceValue: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: COLORS.textPrimary,
-    fontFamily: 'monospace',
-  },
-  changeBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-    gap: 4,
-  },
-  changeText: {
-    fontSize: 13,
-    fontWeight: '700',
-    fontFamily: 'monospace',
-  },
-  priceRange: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginBottom: 12,
-    paddingVertical: 8,
-    backgroundColor: 'rgba(255,255,255,0.02)',
-    borderRadius: 8,
-  },
-  rangeItem: {
-    alignItems: 'center',
-  },
-  rangeLabel: {
-    fontSize: 11,
-    color: COLORS.textSecondary,
-    marginBottom: 4,
-  },
-  rangeValue: {
-    fontSize: 13,
-    color: COLORS.textPrimary,
-    fontWeight: '600',
-    fontFamily: 'monospace',
-  },
-  rangeDivider: {
-    width: 1,
-    backgroundColor: COLORS.border,
-    marginVertical: 4,
-  },
-  chartContainer: {
-    marginTop: 8,
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border,
-  },
-  klineChart: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    height: 85,
-    gap: 3,
-    paddingHorizontal: 4,
-  },
-  klineItem: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-  },
-  klineBar: {
-    width: '100%',
-    maxWidth: 12,
-    borderRadius: 2,
-    position: 'relative',
-  },
-  klinePulse: {
-    position: 'absolute',
-    top: -2,
-    left: '50%',
-    marginLeft: -3,
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    opacity: 0.8,
-  },
-  // Betting Panel
-  betPanel: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    marginBottom: 12,
-  },
-  betLabel: {
-    fontSize: 11,
-    color: COLORS.textSecondary,
-    fontWeight: '600',
-    letterSpacing: 1.5,
-    marginBottom: 10,
-    textTransform: 'uppercase',
-  },
-  directionRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginBottom: 20,
-  },
-  directionBtn: {
-    flex: 1,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    overflow: 'hidden',
-  },
-  directionBtnActiveUp: {
-    borderColor: COLORS.success,
-  },
-  directionBtnActiveDown: {
-    borderColor: COLORS.danger,
-  },
-  directionGradient: {
-    alignItems: 'center',
-    paddingVertical: 18,
-    gap: 6,
-  },
-  directionText: {
-    fontSize: 14,
-    fontWeight: '700',
-    letterSpacing: 1,
-  },
-  oddsText: {
-    fontSize: 18,
-    fontWeight: '800',
-    fontFamily: 'monospace',
-  },
-  // Amount Input
-  amountHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 0,
-  },
-  balanceRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  balanceLabel: {
-    fontSize: 11,
-    color: COLORS.textSecondary,
-  },
-  balanceValue: {
-    fontSize: 11,
-    color: COLORS.textPrimary,
-    fontWeight: '600',
-    fontFamily: 'monospace',
-  },
-  maxBtn: {
-    fontSize: 10,
-    color: COLORS.primary,
-    fontWeight: '700',
-    marginLeft: 4,
-  },
-  amountInputContainer: {
-    backgroundColor: COLORS.background,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    marginBottom: 10,
-  },
-  amountInput: {
-    padding: 14,
     fontSize: 20,
     fontWeight: '700',
     color: COLORS.textPrimary,
-    fontFamily: 'monospace',
   },
-  quickAmountRow: {
+  betButtonsContainer: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 16,
+  },
+  betButton: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 24,
+    borderRadius: 16,
+    borderWidth: 2,
+  },
+  betButtonUp: {
+    backgroundColor: 'rgba(34, 197, 94, 0.1)',
+    borderColor: 'rgba(34, 197, 94, 0.3)',
+  },
+  betButtonDown: {
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    borderColor: 'rgba(239, 68, 68, 0.3)',
+  },
+  betButtonSelectedUp: {
+    backgroundColor: '#22C55E',
+    borderColor: '#22C55E',
+  },
+  betButtonSelectedDown: {
+    backgroundColor: '#EF4444',
+    borderColor: '#EF4444',
+  },
+  betButtonText: {
+    fontSize: 24,
+    fontWeight: '800',
+    marginTop: 8,
+  },
+  betButtonSubtext: {
+    fontSize: 12,
+    marginTop: 4,
+  },
+  poolBar: {
+    marginBottom: 16,
+  },
+  poolBarFill: {
+    flexDirection: 'row',
+    height: 8,
+    borderRadius: 4,
+    overflow: 'hidden',
+    backgroundColor: 'rgba(255,255,255,0.1)',
+  },
+  poolBarUp: {
+    backgroundColor: '#22C55E',
+  },
+  poolBarDown: {
+    backgroundColor: '#EF4444',
+  },
+  poolBarLabels: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  poolBarLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  poolBarTotal: {
+    fontSize: 13,
+    color: '#9CA3AF',
+  },
+  amountSection: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+  },
+  amountLabel: {
+    fontSize: 14,
+    color: '#9CA3AF',
+    marginBottom: 12,
+  },
+  amountInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginBottom: 12,
+  },
+  amountCurrency: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: COLORS.textPrimary,
+    marginRight: 8,
+  },
+  amountInput: {
+    flex: 1,
+    fontSize: 24,
+    fontWeight: '700',
+    color: COLORS.textPrimary,
+  },
+  quickAmounts: {
     flexDirection: 'row',
     gap: 8,
     marginBottom: 16,
   },
   quickAmountBtn: {
     flex: 1,
-    backgroundColor: COLORS.background,
-    borderRadius: 8,
     paddingVertical: 10,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 8,
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  quickAmountBtnActive: {
-    borderColor: COLORS.primary,
-    backgroundColor: 'rgba(245,166,35,0.1)',
   },
   quickAmountText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: COLORS.textSecondary,
-  },
-  quickAmountTextActive: {
-    color: COLORS.primary,
-  },
-  // Return Details
-  returnDetails: {
-    backgroundColor: COLORS.background,
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: 12,
-    gap: 8,
-  },
-  returnRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  returnLabel: {
-    fontSize: 12,
-    color: COLORS.textSecondary,
-  },
-  returnValue: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '600',
     color: COLORS.textPrimary,
-    fontFamily: 'monospace',
   },
-  returnValueHighlight: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: COLORS.primary,
-    fontFamily: 'monospace',
-  },
-  insuranceNotice: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 8,
-    backgroundColor: 'rgba(245,166,35,0.08)',
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: 16,
-  },
-  insuranceNoticeContent: {
-    flex: 1,
-    gap: 2,
-  },
-  insuranceNoticeText: {
-    fontSize: 11,
-    color: COLORS.textSecondary,
-    flex: 1,
-  },
-  insuranceAmountText: {
-    fontSize: 11,
-    color: COLORS.primary,
-    fontWeight: '600',
-  },
-  submitBtn: {
+  submitButton: {
     borderRadius: 12,
     overflow: 'hidden',
-  },
-  submitBtnDisabled: {
-    opacity: 0.6,
   },
   submitGradient: {
     paddingVertical: 16,
     alignItems: 'center',
-    borderRadius: 12,
   },
-  submitText: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: COLORS.background,
-    letterSpacing: 1,
-    textTransform: 'uppercase',
+  submitButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#000',
   },
-  // Status Bar
-  statusBar: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 10,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    marginBottom: 12,
-  },
-  statusContent: {
+  insuranceNotice: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-  },
-  vipBadge: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: 'rgba(245,166,35,0.15)',
     justifyContent: 'center',
-    alignItems: 'center',
-  },
-  statusText: {
-    fontSize: 12,
-    color: COLORS.textSecondary,
-  },
-  upgradeText: {
-    fontSize: 12,
-    color: COLORS.primary,
-    fontWeight: '600',
-  },
-  // Insurance Pool Card
-  insurancePoolCard: {
-    backgroundColor: COLORS.surface,
+    backgroundColor: 'rgba(245, 158, 11, 0.1)',
     borderRadius: 12,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: COLORS.border,
+    padding: 12,
     marginBottom: 16,
   },
-  insurancePoolHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 10,
-  },
-  insurancePoolTitle: {
+  insuranceText: {
     fontSize: 13,
-    fontWeight: '600',
-    color: COLORS.textPrimary,
+    color: '#F59E0B',
+    marginLeft: 8,
   },
-  insurancePoolRow: {
+  tabs: {
+    flexDirection: 'row',
+    backgroundColor: COLORS.surface,
+    borderRadius: 12,
+    padding: 4,
+    marginBottom: 16,
+  },
+  tab: {
+    flex: 1,
+    paddingVertical: 12,
+    alignItems: 'center',
+    borderRadius: 8,
+  },
+  tabActive: {
+    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+  },
+  tabText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#9CA3AF',
+  },
+  tabTextActive: {
+    color: '#F59E0B',
+  },
+  tabContent: {
+    minHeight: 200,
+  },
+  voucherList: {
+    gap: 12,
+  },
+  voucherCard: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 12,
+    padding: 16,
+  },
+  voucherHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 4,
+    marginBottom: 12,
   },
-  insurancePoolLabel: {
-    fontSize: 12,
-    color: COLORS.textSecondary,
+  voucherSide: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
-  insurancePoolValue: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: COLORS.textPrimary,
-    fontFamily: 'monospace',
-  },
-  insurancePoolValueHighlight: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: COLORS.primary,
-    fontFamily: 'monospace',
-  },
-  // History
-  historySection: {
-    marginBottom: 20,
-  },
-  historyTitle: {
+  voucherSideText: {
     fontSize: 15,
     fontWeight: '700',
-    color: COLORS.textPrimary,
-    marginBottom: 12,
+    marginLeft: 8,
   },
-  filterRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 12,
-  },
-  filterBtn: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-    backgroundColor: COLORS.surface,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  filterBtnActive: {
-    backgroundColor: 'rgba(245,166,35,0.15)',
-    borderColor: COLORS.primary,
-  },
-  filterText: {
-    fontSize: 12,
-    color: COLORS.textSecondary,
-    fontWeight: '500',
-  },
-  filterTextActive: {
-    color: COLORS.primary,
+  voucherAmount: {
+    fontSize: 18,
     fontWeight: '700',
+    color: COLORS.textPrimary,
   },
-  emptyState: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 12,
-    padding: 32,
+  voucherFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    gap: 12,
   },
-  emptyText: {
-    fontSize: 13,
-    color: COLORS.textSecondary,
+  voucherRound: {
+    fontSize: 12,
+    color: '#9CA3AF',
   },
-  emptyActionBtn: {
-    backgroundColor: 'rgba(245,166,35,0.15)',
+  claimButton: {
+    backgroundColor: '#F59E0B',
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 8,
-    marginTop: 4,
   },
-  emptyActionText: {
-    fontSize: 12,
-    color: COLORS.primary,
+  claimButtonText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#000',
+  },
+  claimedText: {
+    fontSize: 13,
     fontWeight: '600',
+    color: '#22C55E',
   },
   historyList: {
-    gap: 8,
+    gap: 12,
   },
-  historyItem: {
+  historyCard: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 12,
+    padding: 16,
+  },
+  historyHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: COLORS.surface,
-    borderRadius: 10,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: COLORS.border,
+    marginBottom: 8,
   },
-  historyLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  historyDirection: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  historyTime: {
-    fontSize: 11,
-    color: COLORS.textSecondary,
-    fontFamily: 'monospace',
-  },
-  historyAmount: {
+  historyRound: {
     fontSize: 14,
     fontWeight: '600',
     color: COLORS.textPrimary,
-    fontFamily: 'monospace',
   },
-  historyRight: {
-    alignItems: 'flex-end',
-    gap: 2,
-  },
-  historyStatus: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  historyProfit: {
-    fontSize: 12,
-    fontWeight: '600',
-    fontFamily: 'monospace',
-  },
-  claimBtn: {
-    backgroundColor: 'rgba(0,200,151,0.15)',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 6,
-    marginTop: 2,
-  },
-  claimBtnText: {
-    fontSize: 11,
+  historyResult: {
+    fontSize: 14,
     fontWeight: '700',
-    color: COLORS.success,
   },
-  // Confirm Modal
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  modalContent: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 16,
-    width: '100%',
-    maxWidth: 360,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  modalHeader: {
+  historyBet: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+  },
+  historyBetText: {
+    fontSize: 13,
+    color: '#9CA3AF',
+  },
+  historyBetResult: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  rulesContent: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 12,
     padding: 16,
+    gap: 16,
+  },
+  ruleItem: {
     borderBottomWidth: 1,
     borderBottomColor: COLORS.border,
+    paddingBottom: 12,
   },
-  modalTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: COLORS.textPrimary,
-  },
-  modalBody: {
-    padding: 16,
-    gap: 12,
-  },
-  confirmRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  confirmLabel: {
-    fontSize: 13,
-    color: COLORS.textSecondary,
-  },
-  confirmValue: {
-    fontSize: 14,
+  ruleTitle: {
+    fontSize: 15,
     fontWeight: '600',
     color: COLORS.textPrimary,
-    fontFamily: 'monospace',
+    marginBottom: 4,
   },
-  confirmDirectionBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: 'rgba(0,0,0,0.2)',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 6,
-  },
-  confirmDirectionText: {
+  ruleDesc: {
     fontSize: 13,
-    fontWeight: '700',
+    color: '#9CA3AF',
   },
-  confirmDivider: {
-    height: 1,
-    backgroundColor: COLORS.border,
-    marginVertical: 4,
-  },
-  modalFooter: {
-    flexDirection: 'row',
-    gap: 12,
-    padding: 16,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border,
-  },
-  modalCancelBtn: {
-    flex: 1,
-    paddingVertical: 12,
+  emptyState: {
     alignItems: 'center',
-    borderRadius: 10,
-    backgroundColor: COLORS.background,
-    borderWidth: 1,
-    borderColor: COLORS.border,
+    paddingVertical: 40,
   },
-  modalCancelText: {
+  emptyText: {
     fontSize: 14,
-    fontWeight: '600',
-    color: COLORS.textSecondary,
-  },
-  modalConfirmBtn: {
-    flex: 1,
-    borderRadius: 10,
-    overflow: 'hidden',
-  },
-  modalConfirmGradient: {
-    paddingVertical: 12,
-    alignItems: 'center',
-    borderRadius: 10,
-  },
-  modalConfirmText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: COLORS.background,
+    color: '#6B7280',
+    marginTop: 12,
   },
 });
-
