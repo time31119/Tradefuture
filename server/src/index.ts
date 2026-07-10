@@ -1258,9 +1258,6 @@ app.post('/api/v1/market-maker/apply', (req, res) => {
 // ==================== Prediction Market API ====================
 // Uses real BTC price from existing fetchRealBTCPrice() and fetchRealKlineData()
 
-// Virtual base pool for display (platform injects to make pool look active)
-const VIRTUAL_BASE_POOL = 100; // $100 per side virtual base
-
 // Pure pool model - platform does NOT participate in betting
 // Platform only collects 3% fee, zero risk
 // Winner pool: 80% of (pool - fee), distributed proportionally
@@ -1304,11 +1301,6 @@ async function getCurrentRound(): Promise<any> {
     totalAmount: '0',
     upAmount: '0',
     downAmount: '0',
-    // Virtual base pool for display
-    virtualBasePool: VIRTUAL_BASE_POOL,
-    displayUpAmount: VIRTUAL_BASE_POOL.toString(),
-    displayDownAmount: VIRTUAL_BASE_POOL.toString(),
-    displayTotalAmount: (VIRTUAL_BASE_POOL * 2).toString(),
     winnerSide: null as string | null,
     insurancePool: '21000000',
   };
@@ -1415,12 +1407,9 @@ app.post('/api/v1/rounds/:roundId/bet', (req, res) => {
   round.totalAmount = (parseFloat(round.totalAmount) + netAmount).toString();
   if (side === 'up') {
     round.upAmount = (parseFloat(round.upAmount) + netAmount).toString();
-    round.displayUpAmount = (VIRTUAL_BASE_POOL + parseFloat(round.upAmount)).toString();
   } else {
     round.downAmount = (parseFloat(round.downAmount) + netAmount).toString();
-    round.displayDownAmount = (VIRTUAL_BASE_POOL + parseFloat(round.downAmount)).toString();
   }
-  round.displayTotalAmount = (parseFloat(round.displayUpAmount) + parseFloat(round.displayDownAmount)).toString();
 
   const bet = {
     id: predictionBets.length + 1,
