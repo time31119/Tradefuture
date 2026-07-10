@@ -13,6 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { FontAwesome6 } from '@expo/vector-icons';
+import { LineChart } from 'react-native-gifted-charts';
 import { Screen } from '@/components/Screen';
 import { COLORS } from '@/utils/theme';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
@@ -55,6 +56,8 @@ export default function PredictScreen() {
   const [myVouchers, setMyVouchers] = useState<any[]>([]);
   const [myHistory, setMyHistory] = useState<any[]>([]);
   const [timeLeft, setTimeLeft] = useState(0);
+  const [priceHistory, setPriceHistory] = useState<{ value: number; label?: string }[]>([]);
+  const [priceChange, setPriceChange] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchRounds = async () => {
@@ -85,16 +88,41 @@ export default function PredictScreen() {
     }
   };
 
+  /**
+   * 服务端文件：server/src/index.ts
+   * 接口：GET /api/v1/rounds/price-history
+   * Query 参数：points?: number (数据点数量，默认30)
+   */
+  const fetchPriceHistory = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/v1/rounds/price-history?points=30`);
+      const data = await res.json();
+      if (data.prices && data.prices.length > 0) {
+        const chartData = data.prices.map((p: { time: number; price: number }) => ({
+          value: p.price,
+        }));
+        setPriceHistory(chartData);
+        const firstPrice = data.prices[0].price;
+        const lastPrice = data.prices[data.prices.length - 1].price;
+        setPriceChange(((lastPrice - firstPrice) / firstPrice) * 100);
+      }
+    } catch (error) {
+      console.error('Failed to fetch price history:', error);
+    }
+  };
+
   useFocusEffect(
     useCallback(() => {
       fetchRounds();
       fetchHistory();
+      fetchPriceHistory();
     }, [])
   );
 
   useEffect(() => {
     fetchRounds();
     fetchHistory();
+    fetchPriceHistory();
   }, []);
 
   useEffect(() => {
@@ -116,6 +144,7 @@ export default function PredictScreen() {
     setRefreshing(true);
     fetchRounds();
     fetchHistory();
+    fetchPriceHistory();
   };
 
   const handleBet = async () => {
@@ -263,6 +292,52 @@ export default function PredictScreen() {
               </View>
             )}
           </View>
+
+          {/* Price Trend Chart */}
+          {priceHistory.length > 0 && (
+            <View style={styles.chartCard}>
+              <View style={styles.chartHeader}>
+                <Text style={styles.chartTitle}>BTC/USDT 走势</Text>
+                <View style={styles.chartChangeBadge}>
+                  <FontAwesome6
+                    name={priceChange >= 0 ? 'arrow-trend-up' : 'arrow-trend-down'}
+                    size={12}
+                    color={priceChange >= 0 ? '#22C55E' : '#EF4444'}
+                  />
+                  <Text style={[styles.chartChangeText, { color: priceChange >= 0 ? '#22C55E' : '#EF4444' }]}>
+                    {priceChange >= 0 ? '+' : ''}{priceChange.toFixed(2)}%
+                  </Text>
+                </View>
+              </View>
+              <LineChart
+                data={priceHistory}
+                width={SCREEN_WIDTH - 64}
+                height={160}
+                spacing={8}
+                initialSpacing={0}
+                color="#F59E0B"
+                thickness={2}
+                areaChart
+                hideYAxisText
+                hideDataPoints
+                curved
+                noOfSections={3}
+                yAxisThickness={0}
+                xAxisThickness={1}
+                xAxisColor="rgba(255,255,255,0.1)"
+                rulesColor="rgba(255,255,255,0.05)"
+                backgroundColor="transparent"
+              />
+              <View style={styles.chartFooter}>
+                <Text style={styles.chartFooterText}>
+                  最低 ${Math.min(...priceHistory.map(p => p.value)).toFixed(2)}
+                </Text>
+                <Text style={styles.chartFooterText}>
+                  最高 ${Math.max(...priceHistory.map(p => p.value)).toFixed(2)}
+                </Text>
+              </View>
+            </View>
+          )}
 
           {/* Up/Down Buttons */}
           <View style={styles.betButtonsContainer}>
@@ -593,6 +668,41 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '700',
     color: COLORS.textPrimary,
+  },
+  chartCard: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+  },
+  chartHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  chartTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: COLORS.textPrimary,
+  },
+  chartChangeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  chartChangeText: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  chartFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 8,
+  },
+  chartFooterText: {
+    fontSize: 12,
+    color: '#9CA3AF',
   },
   betButtonsContainer: {
     flexDirection: 'row',

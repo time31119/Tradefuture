@@ -1208,6 +1208,185 @@ app.post('/api/v1/market-maker/apply', (req, res) => {
   });
 });
 
+// ==================== Prediction Market API ====================
+
+// In-memory storage for prediction rounds (simulated)
+const predictionRounds: any[] = [];
+const predictionBets: any[] = [];
+let currentRoundId = 1;
+
+// Generate simulated BTC price
+function generateBTCPrice(): number {
+  const basePrice = 87000 + Math.random() * 3000;
+  return Math.round(basePrice * 100) / 100;
+}
+
+// Initialize or get current round
+function getCurrentRound(): any {
+  const now = Date.now();
+  const active = predictionRounds.find(r => r.status === 'betting' || r.status === 'locked');
+  if (active) return active;
+
+  // Create new round (5 minutes)
+  const startTime = now;
+  const endTime = now + 5 * 60 * 1000;
+  const basePrice = generateBTCPrice();
+  const round = {
+    id: predictionRounds.length + 1,
+    roundId: `R${String(currentRoundId++).padStart(4, '0')}`,
+    status: 'betting',
+    startTime,
+    endTime,
+    basePrice: basePrice.toString(),
+    closePrice: null as string | null,
+    totalAmount: '0',
+    upAmount: '0',
+    downAmount: '0',
+    winnerSide: null as string | null,
+    insurancePool: '21000000',
+  };
+  predictionRounds.push(round);
+
+  // Auto-close after 4 minutes (lock), settle at 5 minutes
+  setTimeout(() => {
+    round.status = 'locked';
+    round.closePrice = generateBTCPrice().toString();
+    round.winnerSide = parseFloat(round.closePrice!) >= parseFloat(round.basePrice) ? 'up' : 'down';
+  }, 4 * 60 * 1000);
+
+  setTimeout(() => {
+    round.status = 'completed';
+  }, 5 * 60 * 1000);
+
+  return round;
+}
+
+// GET /api/v1/rounds/current - Get current round with user vouchers
+app.get('/api/v1/rounds/current', (req, res) => {
+  const { deviceId } = req.query;
+  const current = getCurrentRound();
+  const vouchers = predictionBets.filter(
+    b => b.roundId === current.roundId && b.deviceId === deviceId && !b.claimed
+  );
+  res.json({ current, vouchers });
+});
+
+// GET /api/v1/rounds/history - Get round history
+app.get('/api/v1/rounds/history', (req, res) => {
+  const { deviceId, limit = '20' } = req.query;
+  const completed = predictionRounds
+    .filter(r => r.status === 'completed')
+    .slice(-parseInt(limit as string))
+    .reverse()
+    .map(r => ({
+      ...r,
+      userBet: predictionBets.find(b => b.roundId === r.roundId && b.deviceId === deviceId) || null,
+    }));
+  res.json({ rounds: completed });
+});
+
+// GET /api/v1/rounds/price-history - Get price history for chart
+app.get('/api/v1/rounds/price-history', (req, res) => {
+  const { points = '30' } = req.query;
+  const numPoints = Math.min(parseInt(points as string) || 30, 60);
+  const now = Date.now();
+  const interval = 10 * 1000; // 10 seconds per point
+  const basePrice = 87000 + Math.random() * 1000;
+  const prices = [];
+
+  for (let i = numPoints; i >= 0; i--) {
+    const time = now - i * interval;
+    const change = (Math.random() - 0.48) * 50;
+    const price = basePrice + change * (numPoints - i) * 0.3;
+    prices.push({
+      time,
+      price: Math.round(price * 100) / 100,
+    });
+  }
+
+  res.json({ prices });
+});
+
+// POST /api/v1/rounds/:roundId/bet - Place a bet
+app.post('/api/v1/rounds/:roundId/bet', (req, res) => {
+  const { roundId } = req.params;
+  const { side, amount, deviceId } = req.body;
+
+  if (!side || !amount || !deviceId) {
+    return res.status(400).json({ success: false, error: 'Missing required fields' });
+  }
+
+  const round = predictionRounds.find(r => r.roundId === roundId);
+  if (!round) return res.status(404).json({ success: false, error: 'Round not found' });
+  if (round.status !== 'betting') return res.status(400).json({ success: false, error: 'Round not accepting bets' });
+
+  const betAmount = parseFloat(amount);
+  if (betAmount < 1) return res.status(400).json({ success: false, error: 'Minimum bet is $1' });
+
+  // Update round totals
+  const fee = betAmount * 0.03; // 3% fee
+  const netAmount = betAmount - fee;
+  round.totalAmount = (parseFloat(round.totalAmount) + netAmount).toString();
+  if (side === 'up') {
+    round.upAmount = (parseFloat(round.upAmount) + netAmount).toString();
+  } else {
+    round.downAmount = (parseFloat(round.downAmount) + netAmount).toString();
+  }
+
+  const bet = {
+    id: predictionBets.length + 1,
+    roundId,
+    deviceId,
+    side,
+    amount: betAmount.toString(),
+    fee: fee.toString(),
+    netAmount: netAmount.toString(),
+    claimed: false,
+    won: false,
+    payout: '0',
+    createdAt: new Date().toISOString(),
+  };
+  predictionBets.push(bet);
+
+  res.json({ success: true, bet });
+});
+
+// POST /api/v1/rounds/:roundId/claim - Claim winnings
+app.post('/api/v1/rounds/:roundId/claim', (req, res) => {
+  const { roundId } = req.params;
+  const { deviceId } = req.body;
+
+  const round = predictionRounds.find(r => r.roundId === roundId);
+  if (!round || round.status !== 'completed') {
+    return res.status(400).json({ success: false, error: 'Round not completed' });
+  }
+
+  const bet = predictionBets.find(b => b.roundId === roundId && b.deviceId === deviceId);
+  if (!bet) return res.status(404).json({ success: false, error: 'Bet not found' });
+  if (bet.claimed) return res.status(400).json({ success: false, error: 'Already claimed' });
+
+  const userWon = bet.side === round.winnerSide;
+  bet.won = userWon;
+
+  if (userWon) {
+    const winnerPool = parseFloat(round.winnerSide === 'up' ? round.upAmount : round.downAmount);
+    const totalPool = parseFloat(round.totalAmount);
+    const poolShare = totalPool > 0 ? parseFloat(bet.netAmount) / winnerPool : 0;
+    const distributable = totalPool * 0.8; // 80% to winners
+    const payout = Math.round(poolShare * distributable * 100) / 100;
+    bet.payout = payout.toString();
+  }
+
+  bet.claimed = true;
+
+  res.json({
+    success: true,
+    won: userWon,
+    payout: bet.payout,
+    insurancePayout: userWon ? '0' : bet.amount, // 100% insurance for losers
+  });
+});
+
 app.listen(port, () => {
   console.log(`Server listening at http://localhost:${port}/`);
 });
