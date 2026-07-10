@@ -54,8 +54,8 @@ const VIP_BENEFITS = [
     icon: 'shield-halved' as const,
     title: '预测保险',
     desc: '预测失败享保险仓赔付',
-    detail: '参与预测市场，失败时可获得保险仓 40% 价值等值 TFT 赔付，降低风险',
-    highlight: '40%',
+    detail: '参与预测市场，失败时可获得保险仓 100% 价值等值 TFT 赔付，输家也能成为 TFT 持有者',
+    highlight: '100%',
   },
   {
     id: 5,
