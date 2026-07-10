@@ -58,7 +58,11 @@ export default function PredictScreen() {
   const [timeLeft, setTimeLeft] = useState(0);
   const [priceHistory, setPriceHistory] = useState<{ value: number; label?: string }[]>([]);
   const [priceChange, setPriceChange] = useState(0);
+  const [livePrice, setLivePrice] = useState(0);
+  const [prevPrice, setPrevPrice] = useState(0);
+  const [priceFlash, setPriceFlash] = useState<'up' | 'down' | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const priceTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchRounds = async () => {
     try {
@@ -70,6 +74,15 @@ export default function PredictScreen() {
         setTimeLeft(Math.max(0, Math.floor((endTime - Date.now()) / 1000)));
       }
       if (data.vouchers) setMyVouchers(data.vouchers);
+      // Update live price from round data
+      if (data.btcPrice > 0) {
+        setPrevPrice(livePrice || data.btcPrice);
+        setLivePrice(data.btcPrice);
+        if (livePrice > 0 && data.btcPrice !== livePrice) {
+          setPriceFlash(data.btcPrice > livePrice ? 'up' : 'down');
+          setTimeout(() => setPriceFlash(null), 800);
+        }
+      }
     } catch (error) {
       console.error('Failed to fetch rounds:', error);
     } finally {
@@ -91,11 +104,11 @@ export default function PredictScreen() {
   /**
    * 服务端文件：server/src/index.ts
    * 接口：GET /api/v1/rounds/price-history
-   * Query 参数：points?: number (数据点数量，默认30)
+   * Query 参数：interval?: string (K线间隔), limit?: number (数据点数量)
    */
   const fetchPriceHistory = async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/v1/rounds/price-history?points=30`);
+      const res = await fetch(`${API_BASE}/api/v1/rounds/price-history?interval=1m&limit=30`);
       const data = await res.json();
       if (data.prices && data.prices.length > 0) {
         const chartData = data.prices.map((p: { time: number; price: number }) => ({
@@ -111,11 +124,35 @@ export default function PredictScreen() {
     }
   };
 
+  /**
+   * 服务端文件：server/src/index.ts
+   * 接口：GET /api/v1/rounds/realtime-price
+   * 返回：{ price: number, symbol: string, timestamp: number, source: string }
+   */
+  const fetchRealtimePrice = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/v1/rounds/realtime-price`);
+      const data = await res.json();
+      if (data.price > 0) {
+        setPrevPrice(livePrice || data.price);
+        setLivePrice(data.price);
+        // Flash effect
+        if (livePrice > 0) {
+          setPriceFlash(data.price > livePrice ? 'up' : data.price < livePrice ? 'down' : null);
+          setTimeout(() => setPriceFlash(null), 800);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch realtime price:', error);
+    }
+  };
+
   useFocusEffect(
     useCallback(() => {
       fetchRounds();
       fetchHistory();
       fetchPriceHistory();
+      fetchRealtimePrice();
     }, [])
   );
 
@@ -123,7 +160,19 @@ export default function PredictScreen() {
     fetchRounds();
     fetchHistory();
     fetchPriceHistory();
+    fetchRealtimePrice();
   }, []);
+
+  // Real-time price polling every 10 seconds
+  useEffect(() => {
+    if (priceTimerRef.current) clearInterval(priceTimerRef.current);
+    priceTimerRef.current = setInterval(() => {
+      fetchRealtimePrice();
+    }, 10_000);
+    return () => {
+      if (priceTimerRef.current) clearInterval(priceTimerRef.current);
+    };
+  }, [livePrice]);
 
   useEffect(() => {
     if (timerRef.current) clearInterval(timerRef.current);
@@ -145,6 +194,7 @@ export default function PredictScreen() {
     fetchRounds();
     fetchHistory();
     fetchPriceHistory();
+    fetchRealtimePrice();
   };
 
   const handleBet = async () => {
@@ -275,22 +325,46 @@ export default function PredictScreen() {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
           showsVerticalScrollIndicator={false}
         >
-          {/* Price Card */}
+          {/* Real-time Price Card */}
           <View style={styles.priceCard}>
-            <View style={styles.priceRow}>
-              <Text style={styles.priceLabel}>基准价</Text>
-              <Text style={styles.priceValue}>
+            <View style={styles.priceCardHeader}>
+              <View style={styles.btcLabel}>
+                <FontAwesome6 name="bitcoin" size={16} color="#F59E0B" />
+                <Text style={styles.btcLabelText}>BTC/USDT</Text>
+              </View>
+              <View style={styles.liveBadge}>
+                <View style={styles.liveDot} />
+                <Text style={styles.liveText}>LIVE</Text>
+              </View>
+            </View>
+            <View style={styles.livePriceRow}>
+              <Text
+                style={[
+                  styles.livePriceValue,
+                  priceFlash === 'up' && { color: '#22C55E' },
+                  priceFlash === 'down' && { color: '#EF4444' },
+                ]}
+              >
+                ${livePrice > 0 ? livePrice.toFixed(2) : '--'}
+              </Text>
+              <View style={styles.priceChangeRow}>
+                <FontAwesome6
+                  name={priceChange >= 0 ? 'caret-up' : 'caret-down'}
+                  size={14}
+                  color={priceChange >= 0 ? '#22C55E' : '#EF4444'}
+                />
+                <Text style={[styles.priceChangeText, { color: priceChange >= 0 ? '#22C55E' : '#EF4444' }]}>
+                  {priceChange >= 0 ? '+' : ''}{priceChange.toFixed(2)}%
+                </Text>
+              </View>
+            </View>
+            <View style={styles.priceDivider} />
+            <View style={styles.basePriceRow}>
+              <Text style={styles.basePriceLabel}>本轮基准价</Text>
+              <Text style={styles.basePriceValue}>
                 ${currentRound?.basePrice ? parseFloat(currentRound.basePrice).toFixed(2) : '--'}
               </Text>
             </View>
-            {currentRound?.closePrice && (
-              <View style={styles.priceRow}>
-                <Text style={styles.priceLabel}>收盘价</Text>
-                <Text style={[styles.priceValue, { color: '#22C55E' }]}>
-                  ${parseFloat(currentRound.closePrice).toFixed(2)}
-                </Text>
-              </View>
-            )}
           </View>
 
           {/* Price Trend Chart */}
@@ -653,21 +727,82 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surface,
     borderRadius: 16,
     padding: 16,
-    marginBottom: 16,
+    marginBottom: 12,
   },
-  priceRow: {
+  priceCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  btcLabel: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  btcLabelText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#9CA3AF',
+    marginLeft: 6,
+  },
+  liveBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+  },
+  liveDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#EF4444',
+  },
+  liveText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#EF4444',
+    marginLeft: 4,
+  },
+  livePriceRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+  },
+  livePriceValue: {
+    fontSize: 32,
+    fontWeight: '800',
+    color: COLORS.textPrimary,
+  },
+  priceChangeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  priceChangeText: {
+    fontSize: 15,
+    fontWeight: '700',
+    marginLeft: 2,
+  },
+  priceDivider: {
+    height: 1,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    marginVertical: 12,
+  },
+  basePriceRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  priceLabel: {
-    fontSize: 14,
-    color: '#9CA3AF',
+  basePriceLabel: {
+    fontSize: 13,
+    color: '#6B7280',
   },
-  priceValue: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: COLORS.textPrimary,
+  basePriceValue: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#9CA3AF',
   },
   chartCard: {
     backgroundColor: COLORS.surface,

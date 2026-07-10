@@ -1209,28 +1209,31 @@ app.post('/api/v1/market-maker/apply', (req, res) => {
 });
 
 // ==================== Prediction Market API ====================
+// Uses real BTC price from existing fetchRealBTCPrice() and fetchRealKlineData()
 
-// In-memory storage for prediction rounds (simulated)
+// In-memory storage
 const predictionRounds: any[] = [];
 const predictionBets: any[] = [];
 let currentRoundId = 1;
 
-// Generate simulated BTC price
-function generateBTCPrice(): number {
-  const basePrice = 87000 + Math.random() * 3000;
-  return Math.round(basePrice * 100) / 100;
-}
-
-// Initialize or get current round
-function getCurrentRound(): any {
+// Initialize or get current round (uses real BTC price)
+async function getCurrentRound(): Promise<any> {
   const now = Date.now();
   const active = predictionRounds.find(r => r.status === 'betting' || r.status === 'locked');
-  if (active) return active;
+  if (active) {
+    // Update current price in real-time
+    const priceData = await fetchRealBTCPrice();
+    if (priceData) {
+      active.currentPrice = priceData.price.toString();
+    }
+    return active;
+  }
 
-  // Create new round (5 minutes)
+  // Create new round (5 minutes) with REAL BTC price
   const startTime = now;
   const endTime = now + 5 * 60 * 1000;
-  const basePrice = generateBTCPrice();
+  const priceData = await fetchRealBTCPrice();
+  const basePrice = priceData ? priceData.price : 0;
   const round = {
     id: predictionRounds.length + 1,
     roundId: `R${String(currentRoundId++).padStart(4, '0')}`,
@@ -1238,6 +1241,7 @@ function getCurrentRound(): any {
     startTime,
     endTime,
     basePrice: basePrice.toString(),
+    currentPrice: basePrice.toString(),
     closePrice: null as string | null,
     totalAmount: '0',
     upAmount: '0',
@@ -1247,11 +1251,14 @@ function getCurrentRound(): any {
   };
   predictionRounds.push(round);
 
-  // Auto-close after 4 minutes (lock), settle at 5 minutes
-  setTimeout(() => {
+  // Auto-close after 4 minutes (lock), settle at 5 minutes with REAL price
+  setTimeout(async () => {
     round.status = 'locked';
-    round.closePrice = generateBTCPrice().toString();
-    round.winnerSide = parseFloat(round.closePrice!) >= parseFloat(round.basePrice) ? 'up' : 'down';
+    const closePriceData = await fetchRealBTCPrice();
+    if (closePriceData) {
+      round.closePrice = closePriceData.price.toString();
+      round.winnerSide = closePriceData.price >= parseFloat(round.basePrice) ? 'up' : 'down';
+    }
   }, 4 * 60 * 1000);
 
   setTimeout(() => {
@@ -1262,13 +1269,18 @@ function getCurrentRound(): any {
 }
 
 // GET /api/v1/rounds/current - Get current round with user vouchers
-app.get('/api/v1/rounds/current', (req, res) => {
+app.get('/api/v1/rounds/current', async (req, res) => {
   const { deviceId } = req.query;
-  const current = getCurrentRound();
+  const current = await getCurrentRound();
+  // Ensure real-time price
+  const priceData = await fetchRealBTCPrice();
+  if (priceData) {
+    current.currentPrice = priceData.price.toString();
+  }
   const vouchers = predictionBets.filter(
     b => b.roundId === current.roundId && b.deviceId === deviceId && !b.claimed
   );
-  res.json({ current, vouchers });
+  res.json({ current, vouchers, btcPrice: priceData?.price || 0 });
 });
 
 // GET /api/v1/rounds/history - Get round history
@@ -1285,26 +1297,36 @@ app.get('/api/v1/rounds/history', (req, res) => {
   res.json({ rounds: completed });
 });
 
-// GET /api/v1/rounds/price-history - Get price history for chart
-app.get('/api/v1/rounds/price-history', (req, res) => {
-  const { points = '30' } = req.query;
-  const numPoints = Math.min(parseInt(points as string) || 30, 60);
-  const now = Date.now();
-  const interval = 10 * 1000; // 10 seconds per point
-  const basePrice = 87000 + Math.random() * 1000;
-  const prices = [];
-
-  for (let i = numPoints; i >= 0; i--) {
-    const time = now - i * interval;
-    const change = (Math.random() - 0.48) * 50;
-    const price = basePrice + change * (numPoints - i) * 0.3;
-    prices.push({
-      time,
-      price: Math.round(price * 100) / 100,
-    });
+// GET /api/v1/rounds/realtime-price - Get real-time BTC price (proxies to Binance via existing function)
+app.get('/api/v1/rounds/realtime-price', async (req, res) => {
+  const priceData = await fetchRealBTCPrice();
+  if (!priceData) {
+    return res.status(503).json({ price: 0, error: 'Unable to fetch price' });
   }
+  res.json({
+    price: priceData.price,
+    change24h: priceData.change24h,
+    symbol: 'BTCUSDT',
+    timestamp: Date.now(),
+    source: 'Alternative.me',
+  });
+});
 
-  res.json({ prices });
+// GET /api/v1/rounds/price-history - Get price history for chart (uses real kline data)
+app.get('/api/v1/rounds/price-history', async (req, res) => {
+  const { limit = '30' } = req.query;
+  const numLimit = Math.min(parseInt(limit as string) || 30, 100);
+  const klines = await fetchRealKlineData(numLimit);
+
+  const prices = klines.map((k: any) => ({
+    time: k.timestamp,
+    price: k.close,
+    open: k.open,
+    high: k.high,
+    low: k.low,
+  }));
+
+  res.json({ prices, source: 'Alternative.me', updatedAt: Date.now() });
 });
 
 // POST /api/v1/rounds/:roundId/bet - Place a bet
