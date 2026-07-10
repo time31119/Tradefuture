@@ -1261,6 +1261,11 @@ app.post('/api/v1/market-maker/apply', (req, res) => {
 // Virtual base pool for display (platform injects to make pool look active)
 const VIRTUAL_BASE_POOL = 100; // $100 per side virtual base
 
+// House counterparty odds model (derived from tokenomics)
+// Formula: odds = 1.6 × (1 - fee_rate) = 1.6 × 0.97 = 1.552
+const WIN_ODDS = 1.552; // Winner gets bet × 1.552
+const INSURANCE_RATE = 0.388; // Loser gets bet × 38.8% in TFT
+
 // In-memory storage
 const predictionRounds: any[] = [];
 const predictionBets: any[] = [];
@@ -1448,14 +1453,16 @@ app.post('/api/v1/rounds/:roundId/claim', (req, res) => {
 
   const userWon = bet.side === round.winnerSide;
   bet.won = userWon;
+  const betAmount = parseFloat(bet.amount);
 
   if (userWon) {
-    const winnerPool = parseFloat(round.winnerSide === 'up' ? round.upAmount : round.downAmount);
-    const totalPool = parseFloat(round.totalAmount);
-    const poolShare = totalPool > 0 ? parseFloat(bet.netAmount) / winnerPool : 0;
-    const distributable = totalPool * 0.8; // 80% to winners
-    const payout = Math.round(poolShare * distributable * 100) / 100;
+    // Winner: fixed odds payout = bet × 1.552
+    const payout = Math.round(betAmount * WIN_ODDS * 100) / 100;
     bet.payout = payout.toString();
+  } else {
+    // Loser: insurance payout = bet × 38.8% in TFT
+    const insurancePayout = Math.round(betAmount * INSURANCE_RATE * 100) / 100;
+    bet.insurancePayout = insurancePayout.toString();
   }
 
   bet.claimed = true;
@@ -1463,8 +1470,8 @@ app.post('/api/v1/rounds/:roundId/claim', (req, res) => {
   res.json({
     success: true,
     won: userWon,
-    payout: bet.payout,
-    insurancePayout: userWon ? '0' : bet.amount, // 100% insurance for losers
+    payout: bet.payout || '0',
+    insurancePayout: bet.insurancePayout || '0',
   });
 });
 

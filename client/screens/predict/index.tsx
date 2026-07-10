@@ -698,12 +698,16 @@ export default function PredictScreen() {
                   <Text style={styles.ruleDesc}>每笔下注收取3%平台手续费</Text>
                 </View>
                 <View style={styles.ruleItem}>
-                  <Text style={styles.ruleTitle}>赢家分配</Text>
-                  <Text style={styles.ruleDesc}>扣除手续费后80%进入赢家奖池</Text>
+                  <Text style={styles.ruleTitle}>预测正确</Text>
+                  <Text style={styles.ruleDesc}>获得下注额 × 1.552 倍赔付（含本金）</Text>
                 </View>
                 <View style={styles.ruleItem}>
-                  <Text style={styles.ruleTitle}>保险赔付</Text>
-                  <Text style={styles.ruleDesc}>输家获得保险仓100%等值TFT赔付</Text>
+                  <Text style={styles.ruleTitle}>预测错误</Text>
+                  <Text style={styles.ruleDesc}>获得下注额 × 38.8% 等值TFT保险赔付</Text>
+                </View>
+                <View style={styles.ruleItem}>
+                  <Text style={styles.ruleTitle}>保险仓储备</Text>
+                  <Text style={styles.ruleDesc}>2100万TFT储备金，可持续赔付</Text>
                 </View>
                 <View style={styles.ruleItem}>
                   <Text style={styles.ruleTitle}>最低下注</Text>
