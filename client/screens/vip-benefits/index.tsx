@@ -118,18 +118,20 @@ export default function VIPBenefitsScreen() {
             <FontAwesome6 name="star" size={16} color="#F59E0B" />
             <Text style={styles.sectionTitle}>核心权益</Text>
           </View>
-          <View style={styles.benefitsGrid}>
-            {BENEFITS.map((item) => (
-              <View key={item.id} style={[styles.benefitCard, { borderColor: item.color + '40' }]}>
-                <View style={[styles.benefitIcon, { backgroundColor: item.color + '20' }]}>
-                  <FontAwesome6 name={item.icon} size={20} color={item.color} />
-                </View>
-                <Text style={[styles.benefitValue, { color: item.color }]}>{item.value}</Text>
-                <Text style={styles.benefitTitle}>{item.title}</Text>
-                <Text style={styles.benefitDesc}>{item.desc}</Text>
+          {BENEFITS.map((item, index) => (
+            <View key={item.id} style={[styles.benefitRow, { borderLeftColor: item.color }]}>
+              <View style={[styles.benefitRowIcon, { backgroundColor: item.color + '25' }]}>
+                <FontAwesome6 name={item.icon} size={22} color={item.color} />
               </View>
-            ))}
-          </View>
+              <View style={styles.benefitRowContent}>
+                <View style={styles.benefitRowHeader}>
+                  <Text style={styles.benefitRowTitle}>{item.title}</Text>
+                  <Text style={[styles.benefitRowValue, { color: item.color }]}>{item.value}</Text>
+                </View>
+                <Text style={styles.benefitRowDesc}>{item.desc}</Text>
+              </View>
+            </View>
+          ))}
         </View>
 
         {/* Fee Distribution */}
@@ -289,12 +291,14 @@ const styles = StyleSheet.create({
   sectionSubtitle: { fontSize: 13, color: '#888', marginLeft: 'auto' },
   
   // Benefits Grid
-  benefitsGrid: { flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -6 },
-  benefitCard: { width: '47%', margin: 6, padding: 16, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.03)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
-  benefitIcon: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
-  benefitValue: { fontSize: 22, fontWeight: '800', marginBottom: 4 },
-  benefitTitle: { fontSize: 14, fontWeight: '600', color: '#FFF', marginBottom: 4 },
-  benefitDesc: { fontSize: 12, color: '#888', lineHeight: 16 },
+  benefitsGrid: { gap: 12 },
+  benefitRow: { flexDirection: 'row', alignItems: 'center', padding: 16, borderRadius: 16, backgroundColor: 'rgba(30,30,35,0.95)', borderLeftWidth: 4, borderLeftColor: '#F59E0B', marginBottom: 12 },
+  benefitRowIcon: { width: 52, height: 52, borderRadius: 14, alignItems: 'center', justifyContent: 'center', marginRight: 14 },
+  benefitRowContent: { flex: 1 },
+  benefitRowHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
+  benefitRowTitle: { fontSize: 17, fontWeight: '700', color: '#FFF' },
+  benefitRowValue: { fontSize: 22, fontWeight: '800' },
+  benefitRowDesc: { fontSize: 14, color: '#BBB', lineHeight: 20 },
   
   // Distribution
   distributionCard: { padding: 16, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.03)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
