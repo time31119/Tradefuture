@@ -280,10 +280,9 @@ export function VIPSection({ isVIP = false, onVIPStatusChange }: VIPSectionProps
               <Text style={styles.benefitsTitle}>VIP 核心权益</Text>
             </View>
             <TouchableOpacity onPress={() => {
-              setSelectedBenefit(null);
-              setBenefitsModalVisible(true);
+              router.push('/vip-benefits');
             }}>
-              <Text style={styles.viewAllText}>查看全部</Text>
+              <Text style={styles.viewAllText}>查看全部 →</Text>
             </TouchableOpacity>
           </View>
 
