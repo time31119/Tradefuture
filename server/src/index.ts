@@ -1261,10 +1261,13 @@ app.post('/api/v1/market-maker/apply', (req, res) => {
 // Virtual base pool for display (platform injects to make pool look active)
 const VIRTUAL_BASE_POOL = 100; // $100 per side virtual base
 
-// House counterparty odds model (derived from tokenomics)
-// Formula: odds = 1.6 × (1 - fee_rate) = 1.6 × 0.97 = 1.552
-const WIN_ODDS = 1.552; // Winner gets bet × 1.552
-const INSURANCE_RATE = 0.388; // Loser gets bet × 38.8% in TFT
+// Pure pool model - platform does NOT participate in betting
+// Platform only collects 3% fee, zero risk
+// Winner pool: 80% of (pool - fee), distributed proportionally
+// Insurance pool: 20% of (pool - fee)
+const FEE_RATE = 0.03; // 3% platform fee
+const WINNER_SHARE = 0.80; // 80% to winners
+const INSURANCE_SHARE = 0.20; // 20% to insurance
 
 // In-memory storage
 const predictionRounds: any[] = [];
@@ -1437,7 +1440,7 @@ app.post('/api/v1/rounds/:roundId/bet', (req, res) => {
   res.json({ success: true, bet });
 });
 
-// POST /api/v1/rounds/:roundId/claim - Claim winnings
+// POST /api/v1/rounds/:roundId/claim - Claim winnings (pure pool model)
 app.post('/api/v1/rounds/:roundId/claim', (req, res) => {
   const { roundId } = req.params;
   const { deviceId } = req.body;
@@ -1451,18 +1454,52 @@ app.post('/api/v1/rounds/:roundId/claim', (req, res) => {
   if (!bet) return res.status(404).json({ success: false, error: 'Bet not found' });
   if (bet.claimed) return res.status(400).json({ success: false, error: 'Already claimed' });
 
+  // Check if both sides have bets (pure pool requires both sides)
+  const upAmount = parseFloat(round.upAmount);
+  const downAmount = parseFloat(round.downAmount);
   const userWon = bet.side === round.winnerSide;
-  bet.won = userWon;
   const betAmount = parseFloat(bet.amount);
 
+  if (upAmount === 0 || downAmount === 0) {
+    // One side has no bets - refund all bets (no valid pool)
+    bet.won = false;
+    bet.refunded = true;
+    bet.payout = betAmount.toString(); // Return original bet
+    bet.claimed = true;
+
+    return res.json({
+      success: true,
+      won: false,
+      refunded: true,
+      payout: bet.payout,
+      message: 'Round cancelled: no counterparty bets',
+    });
+  }
+
+  // Pure pool model: winner pool = 80% of (total pool - fee)
+  const totalPool = upAmount + downAmount;
+  const fee = totalPool * FEE_RATE;
+  const winnerPool = totalPool * (1 - FEE_RATE) * WINNER_SHARE;
+  const insurancePool = totalPool * (1 - FEE_RATE) * INSURANCE_SHARE;
+
+  // Store round settlement info
+  round.fee = fee.toString();
+  round.winnerPool = winnerPool.toString();
+  round.insurancePool = insurancePool.toString();
+
   if (userWon) {
-    // Winner: fixed odds payout = bet × 1.552
-    const payout = Math.round(betAmount * WIN_ODDS * 100) / 100;
+    // Winner gets proportional share of winner pool
+    // Share = user's bet / total winning side amount
+    const winningSideTotal = bet.side === 'up' ? upAmount : downAmount;
+    const userShare = betAmount / winningSideTotal;
+    const payout = Math.round(winnerPool * userShare * 100) / 100;
+    bet.won = true;
     bet.payout = payout.toString();
+    bet.share = (userShare * 100).toFixed(2) + '%';
   } else {
-    // Loser: insurance payout = bet × 38.8% in TFT
-    const insurancePayout = Math.round(betAmount * INSURANCE_RATE * 100) / 100;
-    bet.insurancePayout = insurancePayout.toString();
+    // Loser gets nothing from pool (pure pool model)
+    bet.won = false;
+    bet.payout = '0';
   }
 
   bet.claimed = true;
@@ -1470,8 +1507,10 @@ app.post('/api/v1/rounds/:roundId/claim', (req, res) => {
   res.json({
     success: true,
     won: userWon,
-    payout: bet.payout || '0',
-    insurancePayout: bet.insurancePayout || '0',
+    payout: bet.payout,
+    winnerPool: round.winnerPool,
+    insurancePool: round.insurancePool,
+    userShare: bet.share || '0%',
   });
 });
 

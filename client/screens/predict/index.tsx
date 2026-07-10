@@ -695,19 +695,23 @@ export default function PredictScreen() {
                 </View>
                 <View style={styles.ruleItem}>
                   <Text style={styles.ruleTitle}>手续费</Text>
-                  <Text style={styles.ruleDesc}>每笔下注收取3%平台手续费</Text>
+                  <Text style={styles.ruleDesc}>奖池扣除3%平台手续费</Text>
+                </View>
+                <View style={styles.ruleItem}>
+                  <Text style={styles.ruleTitle}>奖池分配</Text>
+                  <Text style={styles.ruleDesc}>赢家分配80%，保险仓分配20%</Text>
                 </View>
                 <View style={styles.ruleItem}>
                   <Text style={styles.ruleTitle}>预测正确</Text>
-                  <Text style={styles.ruleDesc}>获得下注额 × 1.552 倍赔付（含本金）</Text>
+                  <Text style={styles.ruleDesc}>按比例分配赢家奖池（下注越多份额越大）</Text>
                 </View>
                 <View style={styles.ruleItem}>
                   <Text style={styles.ruleTitle}>预测错误</Text>
-                  <Text style={styles.ruleDesc}>获得下注额 × 38.8% 等值TFT保险赔付</Text>
+                  <Text style={styles.ruleDesc}>下注金额归入奖池，由赢家分配</Text>
                 </View>
                 <View style={styles.ruleItem}>
-                  <Text style={styles.ruleTitle}>保险仓储备</Text>
-                  <Text style={styles.ruleDesc}>2100万TFT储备金，可持续赔付</Text>
+                  <Text style={styles.ruleTitle}>无人对赌</Text>
+                  <Text style={styles.ruleDesc}>若一方无人下注，本轮自动退款</Text>
                 </View>
                 <View style={styles.ruleItem}>
                   <Text style={styles.ruleTitle}>最低下注</Text>
