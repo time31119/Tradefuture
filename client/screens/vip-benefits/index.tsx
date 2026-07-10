@@ -183,7 +183,7 @@ export default function VIPBenefitsScreen() {
                 <Text style={[styles.distributionPercent, { color: item.color }]}>
                   {item.percent}%
                 </Text>
-                <Text style={[styles.distributionAmount, { color: COLORS.textSecondary }]}>
+                <Text style={[styles.distributionAmount, { color: '#D1D5DB' }]}>
                   ${item.amount}
                 </Text>
               </View>
@@ -207,7 +207,7 @@ export default function VIPBenefitsScreen() {
                 </View>
                 <View style={styles.benefitDetailTitleBox}>
                   <Text style={[styles.benefitDetailTitle, { color: COLORS.textPrimary }]}>{benefit.title}</Text>
-                  <Text style={[styles.benefitDetailSubtitle, { color: COLORS.textSecondary }]}>
+                  <Text style={[styles.benefitDetailSubtitle, { color: '#D1D5DB' }]}>
                     {benefit.subtitle}
                   </Text>
                 </View>
@@ -217,7 +217,7 @@ export default function VIPBenefitsScreen() {
               </View>
 
               {/* Description */}
-              <Text style={[styles.benefitDetailDesc, { color: COLORS.textSecondary }]}>
+              <Text style={[styles.benefitDetailDesc, { color: '#D1D5DB' }]}>
                 {benefit.description}
               </Text>
 
@@ -225,7 +225,7 @@ export default function VIPBenefitsScreen() {
               <View style={styles.benefitDetailsGrid}>
                 {benefit.details.map((detail, idx) => (
                   <View key={idx} style={styles.benefitDetailItem}>
-                    <Text style={[styles.benefitDetailItemLabel, { color: COLORS.textSecondary }]}>
+                    <Text style={[styles.benefitDetailItemLabel, { color: '#D1D5DB' }]}>
                       {detail.label}
                     </Text>
                     <Text style={[styles.benefitDetailItemValue, { color: COLORS.textPrimary }]}>
@@ -237,8 +237,8 @@ export default function VIPBenefitsScreen() {
 
               {/* Note */}
               <View style={[styles.benefitNoteBox, { backgroundColor: COLORS.background }]}>
-                <FontAwesome6 name="info-circle" size={10} color={COLORS.textSecondary} />
-                <Text style={[styles.benefitNoteText, { color: COLORS.textSecondary }]}>
+                <FontAwesome6 name="circle-info" size={10} color={'#D1D5DB'} />
+                <Text style={[styles.benefitNoteText, { color: '#D1D5DB' }]}>
                   {benefit.note}
                 </Text>
               </View>
@@ -249,13 +249,13 @@ export default function VIPBenefitsScreen() {
         {/* VIP Comparison */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <FontAwesome6 name="balance-scale" size={14} color={COLORS.primary} />
+            <FontAwesome6 name="scale-balanced" size={14} color={COLORS.primary} />
             <Text style={[styles.sectionTitle, { color: COLORS.textPrimary }]}>普通用户 vs VIP</Text>
           </View>
           <View style={[styles.comparisonCard, { backgroundColor: COLORS.surface }]}>
             <View style={styles.comparisonHeader}>
-              <Text style={[styles.comparisonHeaderCell, { color: COLORS.textSecondary, flex: 2 }]}>权益项目</Text>
-              <Text style={[styles.comparisonHeaderCell, { color: COLORS.textSecondary }]}>普通用户</Text>
+              <Text style={[styles.comparisonHeaderCell, { color: '#D1D5DB', flex: 2 }]}>权益项目</Text>
+              <Text style={[styles.comparisonHeaderCell, { color: '#D1D5DB' }]}>普通用户</Text>
               <Text style={[styles.comparisonHeaderCell, { color: COLORS.primary }]}>VIP</Text>
             </View>
             {[
@@ -267,7 +267,7 @@ export default function VIPBenefitsScreen() {
             ].map((row, idx) => (
               <View key={idx} style={[styles.comparisonRow, { borderBottomColor: COLORS.border }]}>
                 <Text style={[styles.comparisonCell, { color: COLORS.textPrimary, flex: 2 }]}>{row.item}</Text>
-                <Text style={[styles.comparisonCell, { color: COLORS.textSecondary }]}>{row.basic}</Text>
+                <Text style={[styles.comparisonCell, { color: '#D1D5DB' }]}>{row.basic}</Text>
                 <Text style={[styles.comparisonCell, { color: COLORS.primary, fontWeight: '600' }]}>{row.vip}</Text>
               </View>
             ))}
@@ -286,10 +286,10 @@ export default function VIPBenefitsScreen() {
 
         {/* Footer */}
         <View style={styles.footer}>
-          <Text style={[styles.footerText, { color: COLORS.textSecondary }]}>
+          <Text style={[styles.footerText, { color: '#D1D5DB' }]}>
             激活费用 100 USDT · 一次激活终身有效
           </Text>
-          <Text style={[styles.footerSubText, { color: COLORS.textSecondary }]}>
+          <Text style={[styles.footerSubText, { color: '#D1D5DB' }]}>
             请确保钱包中有少量 BNB 作为手续费
           </Text>
         </View>
@@ -376,7 +376,7 @@ const styles = StyleSheet.create({
   },
   heroSubtitle: {
     fontSize: 14,
-    color: 'rgba(255,255,255,0.85)',
+    color: '#FFFFFF',
     marginBottom: 20,
     lineHeight: 20,
   },
@@ -401,7 +401,7 @@ const styles = StyleSheet.create({
   },
   heroStatLabel: {
     fontSize: 12,
-    color: 'rgba(255,255,255,0.8)',
+    color: '#E5E7EB',
     marginTop: 4,
     fontWeight: '500',
   },
