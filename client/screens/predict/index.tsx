@@ -34,6 +34,11 @@ interface Round {
   totalAmount: string;
   upAmount: string;
   downAmount: string;
+  // Virtual base pool display
+  virtualBasePool?: number;
+  displayUpAmount?: string;
+  displayDownAmount?: string;
+  displayTotalAmount?: string;
   winnerSide: string;
   insurancePool: string;
   userBet?: {
@@ -321,11 +326,21 @@ export default function PredictScreen() {
     );
   }
 
+  // Actual amounts (for settlement)
   const upAmount = currentRound?.upAmount ? parseFloat(currentRound.upAmount) : 0;
   const downAmount = currentRound?.downAmount ? parseFloat(currentRound.downAmount) : 0;
   const totalAmount = upAmount + downAmount;
-  const upPercent = totalAmount > 0 ? (upAmount / totalAmount) * 100 : 50;
-  const downPercent = totalAmount > 0 ? (downAmount / totalAmount) * 100 : 50;
+
+  // Display amounts (virtual base pool + actual bets, for visualization)
+  const displayUpAmount = currentRound?.displayUpAmount
+    ? parseFloat(currentRound.displayUpAmount)
+    : (currentRound?.virtualBasePool || 50) + upAmount;
+  const displayDownAmount = currentRound?.displayDownAmount
+    ? parseFloat(currentRound.displayDownAmount)
+    : (currentRound?.virtualBasePool || 50) + downAmount;
+  const displayTotalAmount = displayUpAmount + displayDownAmount;
+  const upPercent = displayTotalAmount > 0 ? (displayUpAmount / displayTotalAmount) * 100 : 50;
+  const downPercent = displayTotalAmount > 0 ? (displayDownAmount / displayTotalAmount) * 100 : 50;
 
   return (
     <Screen>
@@ -477,7 +492,7 @@ export default function PredictScreen() {
                 涨
               </Text>
               <Text style={[styles.betButtonSubtext, { color: selectedSide === 'up' ? 'rgba(255,255,255,0.8)' : '#9CA3AF' }]}>
-                已投 ${upAmount.toFixed(2)}
+                已投 ${displayUpAmount.toFixed(0)}
               </Text>
             </TouchableOpacity>
 
@@ -495,7 +510,7 @@ export default function PredictScreen() {
                 跌
               </Text>
               <Text style={[styles.betButtonSubtext, { color: selectedSide === 'down' ? 'rgba(255,255,255,0.8)' : '#9CA3AF' }]}>
-                已投 ${downAmount.toFixed(2)}
+                已投 ${displayDownAmount.toFixed(0)}
               </Text>
             </TouchableOpacity>
           </View>
@@ -507,9 +522,9 @@ export default function PredictScreen() {
               <View style={[styles.poolBarDown, { width: `${downPercent}%` }]} />
             </View>
             <View style={styles.poolBarLabels}>
-              <Text style={[styles.poolBarLabel, { color: '#22C55E' }]}>涨 {upPercent.toFixed(0)}%</Text>
-              <Text style={styles.poolBarTotal}>总池: ${totalAmount.toFixed(2)}</Text>
-              <Text style={[styles.poolBarLabel, { color: '#EF4444' }]}>跌 {downPercent.toFixed(0)}%</Text>
+              <Text style={[styles.poolBarLabel, { color: '#22C55E' }]}>涨 ${displayUpAmount.toFixed(0)}</Text>
+              <Text style={styles.poolBarTotal}>总池: ${displayTotalAmount.toFixed(0)}</Text>
+              <Text style={[styles.poolBarLabel, { color: '#EF4444' }]}>跌 ${displayDownAmount.toFixed(0)}</Text>
             </View>
           </View>
 
