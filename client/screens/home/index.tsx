@@ -19,6 +19,7 @@ import { useWallet } from '@/contexts/WalletContext';
 import { useFocusEffect } from 'expo-router';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
 import { ReinvestmentModal, ReinvestmentData } from '@/components/ReinvestmentModal';
+import { VIPSection } from '@/components/VIPSection';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { COLORS } from '@/utils/theme';
 
@@ -117,6 +118,9 @@ export default function HomeScreen() {
   // Claim loading state
   const [claimingId, setClaimingId] = useState<number | null>(null);
 
+  // VIP status
+  const [isVIP, setIsVIP] = useState(false);
+
   // BTC price auto-refresh interval
   const priceIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [countdown, setCountdown] = useState(30);
@@ -164,11 +168,23 @@ export default function HomeScreen() {
     }
   }, []);
 
+  // Fetch VIP status
+  const fetchVIPStatus = useCallback(async () => {
+    if (!isConnected || !wallet?.address) return;
+    try {
+      const res = await fetch(`${EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/vip/status?wallet=${wallet.address}`);
+      const data = await res.json();
+      if (data.success) setIsVIP(data.data.isVIP);
+    } catch (error) {
+      console.error('Fetch VIP status error:', error);
+    }
+  }, [isConnected, wallet?.address]);
+
   const fetchData = useCallback(async () => {
     setLoading(true);
-    await Promise.all([fetchOverview(), fetchPrice(), fetchKline(), fetchPredictions()]);
+    await Promise.all([fetchOverview(), fetchPrice(), fetchKline(), fetchPredictions(), fetchVIPStatus()]);
     setLoading(false);
-  }, [fetchOverview, fetchPrice, fetchKline, fetchPredictions]);
+  }, [fetchOverview, fetchPrice, fetchKline, fetchPredictions, fetchVIPStatus]);
 
   useFocusEffect(
     useCallback(() => {
@@ -508,6 +524,9 @@ export default function HomeScreen() {
             onPress={() => handleCardPress('volume')}
           />
         </View>
+
+        {/* VIP Section */}
+        <VIPSection isVIP={isVIP} onVIPStatusChange={fetchVIPStatus} />
 
         {/* Quick Actions */}
         <View style={styles.section}>

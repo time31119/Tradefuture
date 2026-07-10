@@ -838,6 +838,33 @@ app.get('/api/v1/vip/info', (req, res) => {
   });
 });
 
+// GET /api/v1/vip/status - Check VIP status
+app.get('/api/v1/vip/status', (req, res) => {
+  // TODO: Integrate with smart contract
+  res.json({
+    success: true,
+    data: {
+      isVIP: false,
+      activationFee: 100,
+      currency: 'USDT',
+    },
+  });
+});
+
+// POST /api/v1/vip/activate - Activate VIP
+app.post('/api/v1/vip/activate', (req, res) => {
+  const { referrer } = req.body;
+  // TODO: Integrate with smart contract
+  res.json({
+    success: true,
+    message: 'VIP activation transaction submitted',
+    data: {
+      txHash: '0x' + '0'.repeat(64),
+      isVIP: true,
+    },
+  });
+});
+
 // ==================== Node Economics API ====================
 
 // GET /api/v1/node/economics - Node economics info
