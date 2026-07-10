@@ -397,7 +397,7 @@ function VIPBenefitsModalContent({
           </Text>
         </View>
         <TouchableOpacity onPress={onClose} style={styles.modalCloseBtn}>
-          <FontAwesome6 name="xmark" size={18} color={'#D1D5DB'} />
+          <FontAwesome6 name="xmark" size={18} color={'#FFFFFF'} />
         </TouchableOpacity>
       </View>
 
@@ -561,7 +561,7 @@ const styles = StyleSheet.create({
   },
   vipDescText: {
     fontSize: 13,
-    color: '#D1D5DB',
+    color: '#FFFFFF',
     marginBottom: 16,
   },
   vipStatsRow: {
@@ -582,7 +582,7 @@ const styles = StyleSheet.create({
   },
   vipStatLabel: {
     fontSize: 10,
-    color: '#D1D5DB',
+    color: '#FFFFFF',
     marginTop: 2,
   },
   vipStatDivider: {
@@ -635,12 +635,12 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#D1D5DB',
+    backgroundColor: '#FFFFFF',
   },
   statusBadgeText: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#D1D5DB',
+    color: '#FFFFFF',
     letterSpacing: 1,
   },
 
@@ -653,7 +653,7 @@ const styles = StyleSheet.create({
   },
   heroSubtitle: {
     fontSize: 13,
-    color: '#D1D5DB',
+    color: '#FFFFFF',
     marginBottom: 20,
   },
 
@@ -675,12 +675,12 @@ const styles = StyleSheet.create({
   feeLabel: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#D1D5DB',
+    color: '#FFFFFF',
     marginBottom: 4,
   },
   feeHint: {
     fontSize: 11,
-    color: '#D1D5DB' + '80',
+    color: '#FFFFFF' + '80',
   },
   feeAmountBox: {
     flexDirection: 'row',
@@ -791,7 +791,7 @@ const styles = StyleSheet.create({
   },
   benefitGridDesc: {
     fontSize: 11,
-    color: '#D1D5DB',
+    color: '#FFFFFF',
   },
   benefitHighlight: {
     position: 'absolute',
@@ -846,7 +846,7 @@ const styles = StyleSheet.create({
   },
   feeMiniLabel: {
     fontSize: 9,
-    color: '#D1D5DB',
+    color: '#FFFFFF',
   },
 
   // Modal
@@ -900,7 +900,7 @@ const styles = StyleSheet.create({
   modalSectionTitle: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#D1D5DB',
+    color: '#FFFFFF',
     marginBottom: 12,
     textTransform: 'uppercase',
     letterSpacing: 1,
@@ -928,7 +928,7 @@ const styles = StyleSheet.create({
   },
   singleBenefitDesc: {
     fontSize: 14,
-    color: '#D1D5DB',
+    color: '#FFFFFF',
     lineHeight: 22,
     textAlign: 'center',
     paddingHorizontal: 20,
@@ -972,7 +972,7 @@ const styles = StyleSheet.create({
   },
   distributionLabel: {
     fontSize: 10,
-    color: '#D1D5DB',
+    color: '#FFFFFF',
     marginTop: 4,
   },
 
@@ -1003,7 +1003,7 @@ const styles = StyleSheet.create({
   },
   benefitDetailDesc: {
     fontSize: 12,
-    color: '#D1D5DB',
+    color: '#FFFFFF',
     lineHeight: 18,
   },
 
