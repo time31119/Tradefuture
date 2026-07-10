@@ -421,9 +421,10 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   sectionTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    marginLeft: 8,
+    fontSize: 18,
+    fontWeight: '700',
+    marginLeft: 10,
+    color: '#FFFFFF',
   },
   // Distribution Card
   distributionCard: {
@@ -447,9 +448,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   distributionLabel: {
-    fontSize: 13,
-    fontWeight: '500',
-    width: 60,
+    fontSize: 16,
+    fontWeight: '700',
+    width: 80,
     marginLeft: 8,
   },
   distributionBar: {
@@ -465,14 +466,15 @@ const styles = StyleSheet.create({
     borderRadius: 3,
   },
   distributionPercent: {
-    fontSize: 12,
-    fontWeight: '600',
-    width: 32,
+    fontSize: 15,
+    fontWeight: '700',
+    width: 40,
     textAlign: 'right',
   },
   distributionAmount: {
-    fontSize: 12,
-    width: 30,
+    fontSize: 15,
+    fontWeight: '700',
+    width: 40,
     textAlign: 'right',
   },
   // Benefit Detail Card
