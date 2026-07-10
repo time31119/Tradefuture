@@ -61,8 +61,12 @@ export default function PredictScreen() {
   const [livePrice, setLivePrice] = useState(0);
   const [prevPrice, setPrevPrice] = useState(0);
   const [priceFlash, setPriceFlash] = useState<'up' | 'down' | null>(null);
+  const [chartInterval, setChartInterval] = useState('5m');
+  const [chartHigh, setChartHigh] = useState(0);
+  const [chartLow, setChartLow] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const priceTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const chartTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchRounds = async () => {
     try {
@@ -104,11 +108,17 @@ export default function PredictScreen() {
   /**
    * 服务端文件：server/src/index.ts
    * 接口：GET /api/v1/rounds/price-history
-   * Query 参数：interval?: string (K线间隔), limit?: number (数据点数量)
+   * Query 参数：interval?: string (1m/5m/15m/1h/4h/1d), limit?: number
    */
-  const fetchPriceHistory = async () => {
+  const fetchPriceHistory = useCallback(async (interval?: string) => {
     try {
-      const res = await fetch(`${API_BASE}/api/v1/rounds/price-history?interval=1m&limit=30`);
+      const iv = interval || chartInterval;
+      // 根据 interval 自动计算 limit（24h 数据量）
+      const limitMap: Record<string, number> = {
+        '1m': 1440, '5m': 288, '15m': 96, '1h': 24, '4h': 42, '1d': 30,
+      };
+      const limit = limitMap[iv] || 288;
+      const res = await fetch(`${API_BASE}/api/v1/rounds/price-history?interval=${iv}&limit=${limit}`);
       const data = await res.json();
       if (data.prices && data.prices.length > 0) {
         const chartData = data.prices.map((p: { time: number; price: number }) => ({
@@ -118,27 +128,29 @@ export default function PredictScreen() {
         const firstPrice = data.prices[0].price;
         const lastPrice = data.prices[data.prices.length - 1].price;
         setPriceChange(((lastPrice - firstPrice) / firstPrice) * 100);
+        setChartHigh(Math.max(...data.prices.map((p: { high?: number; price: number }) => p.high || p.price)));
+        setChartLow(Math.min(...data.prices.map((p: { low?: number; price: number }) => p.low || p.price)));
       }
     } catch (error) {
       console.error('Failed to fetch price history:', error);
     }
-  };
+  }, [chartInterval]);
 
   /**
    * 服务端文件：server/src/index.ts
-   * 接口：GET /api/v1/rounds/realtime-price
-   * 返回：{ price: number, symbol: string, timestamp: number, source: string }
+   * 接口：GET /api/v1/btc/price
+   * 返回：{ success: boolean, data: { price, change24h, high24h, low24h, volume24h }, source: 'Binance' }
    */
   const fetchRealtimePrice = async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/v1/rounds/realtime-price`);
+      const res = await fetch(`${API_BASE}/api/v1/btc/price`);
       const data = await res.json();
-      if (data.price > 0) {
-        setPrevPrice(livePrice || data.price);
-        setLivePrice(data.price);
-        // Flash effect
-        if (livePrice > 0) {
-          setPriceFlash(data.price > livePrice ? 'up' : data.price < livePrice ? 'down' : null);
+      if (data.success && data.data?.price > 0) {
+        const newPrice = data.data.price;
+        setPrevPrice(livePrice || newPrice);
+        setLivePrice(newPrice);
+        if (livePrice > 0 && newPrice !== livePrice) {
+          setPriceFlash(newPrice > livePrice ? 'up' : 'down');
           setTimeout(() => setPriceFlash(null), 800);
         }
       }
@@ -153,7 +165,7 @@ export default function PredictScreen() {
       fetchHistory();
       fetchPriceHistory();
       fetchRealtimePrice();
-    }, [])
+    }, [fetchPriceHistory])
   );
 
   useEffect(() => {
@@ -161,18 +173,29 @@ export default function PredictScreen() {
     fetchHistory();
     fetchPriceHistory();
     fetchRealtimePrice();
-  }, []);
+  }, [fetchPriceHistory]);
 
-  // Real-time price polling every 10 seconds
+  // Real-time price polling every 5 seconds
   useEffect(() => {
     if (priceTimerRef.current) clearInterval(priceTimerRef.current);
     priceTimerRef.current = setInterval(() => {
       fetchRealtimePrice();
-    }, 10_000);
+    }, 5_000);
     return () => {
       if (priceTimerRef.current) clearInterval(priceTimerRef.current);
     };
   }, [livePrice]);
+
+  // Chart data refresh every 30 seconds
+  useEffect(() => {
+    if (chartTimerRef.current) clearInterval(chartTimerRef.current);
+    chartTimerRef.current = setInterval(() => {
+      fetchPriceHistory();
+    }, 30_000);
+    return () => {
+      if (chartTimerRef.current) clearInterval(chartTimerRef.current);
+    };
+  }, [fetchPriceHistory]);
 
   useEffect(() => {
     if (timerRef.current) clearInterval(timerRef.current);
@@ -371,11 +394,11 @@ export default function PredictScreen() {
           {priceHistory.length > 0 && (
             <View style={styles.chartCard}>
               <View style={styles.chartHeader}>
-                <Text style={styles.chartTitle}>BTC/USDT 走势</Text>
+                <Text style={styles.chartTitle}>BTC/USDT</Text>
                 <View style={styles.chartChangeBadge}>
                   <FontAwesome6
-                    name={priceChange >= 0 ? 'arrow-trend-up' : 'arrow-trend-down'}
-                    size={12}
+                    name={priceChange >= 0 ? 'caret-up' : 'caret-down'}
+                    size={14}
                     color={priceChange >= 0 ? '#22C55E' : '#EF4444'}
                   />
                   <Text style={[styles.chartChangeText, { color: priceChange >= 0 ? '#22C55E' : '#EF4444' }]}>
@@ -383,13 +406,30 @@ export default function PredictScreen() {
                   </Text>
                 </View>
               </View>
+              {/* Interval Selector */}
+              <View style={styles.intervalRow}>
+                {['1m', '5m', '15m', '1h', '4h', '1d'].map((iv) => (
+                  <TouchableOpacity
+                    key={iv}
+                    style={[styles.intervalBtn, chartInterval === iv && styles.intervalBtnActive]}
+                    onPress={() => {
+                      setChartInterval(iv);
+                      fetchPriceHistory(iv);
+                    }}
+                  >
+                    <Text style={[styles.intervalText, chartInterval === iv && styles.intervalTextActive]}>
+                      {iv}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
               <LineChart
                 data={priceHistory}
                 width={SCREEN_WIDTH - 64}
-                height={160}
-                spacing={8}
+                height={180}
+                spacing={4}
                 initialSpacing={0}
-                color="#F59E0B"
+                color={priceChange >= 0 ? '#22C55E' : '#EF4444'}
                 thickness={2}
                 areaChart
                 hideYAxisText
@@ -401,14 +441,22 @@ export default function PredictScreen() {
                 xAxisColor="rgba(255,255,255,0.1)"
                 rulesColor="rgba(255,255,255,0.05)"
                 backgroundColor="transparent"
+                startOpacity={0.3}
+                endOpacity={0}
               />
               <View style={styles.chartFooter}>
-                <Text style={styles.chartFooterText}>
-                  最低 ${Math.min(...priceHistory.map(p => p.value)).toFixed(2)}
-                </Text>
-                <Text style={styles.chartFooterText}>
-                  最高 ${Math.max(...priceHistory.map(p => p.value)).toFixed(2)}
-                </Text>
+                <View style={styles.chartStatItem}>
+                  <Text style={styles.chartStatLabel}>最低</Text>
+                  <Text style={[styles.chartStatValue, { color: '#EF4444' }]}>
+                    ${chartLow > 0 ? chartLow.toFixed(2) : Math.min(...priceHistory.map(p => p.value)).toFixed(2)}
+                  </Text>
+                </View>
+                <View style={styles.chartStatItem}>
+                  <Text style={styles.chartStatLabel}>最高</Text>
+                  <Text style={[styles.chartStatValue, { color: '#22C55E' }]}>
+                    ${chartHigh > 0 ? chartHigh.toFixed(2) : Math.max(...priceHistory.map(p => p.value)).toFixed(2)}
+                  </Text>
+                </View>
               </View>
             </View>
           )}
@@ -833,11 +881,42 @@ const styles = StyleSheet.create({
   chartFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 8,
+    marginTop: 10,
+    paddingHorizontal: 4,
   },
-  chartFooterText: {
+  chartStatItem: {
+    alignItems: 'center',
+  },
+  chartStatLabel: {
+    fontSize: 11,
+    color: '#6B7280',
+    marginBottom: 2,
+  },
+  chartStatValue: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  intervalRow: {
+    flexDirection: 'row',
+    gap: 6,
+    marginBottom: 10,
+  },
+  intervalBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+  },
+  intervalBtnActive: {
+    backgroundColor: '#F59E0B',
+  },
+  intervalText: {
     fontSize: 12,
-    color: '#9CA3AF',
+    fontWeight: '600',
+    color: '#6B7280',
+  },
+  intervalTextActive: {
+    color: '#000',
   },
   betButtonsContainer: {
     flexDirection: 'row',

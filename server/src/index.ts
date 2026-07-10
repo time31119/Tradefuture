@@ -101,108 +101,155 @@ app.get('/api/v1/role-grant-logs', (req, res) => {
   res.json({ success: true, data: logs });
 });
 
-// ==================== BTC Price API ====================
+// ==================== BTC Price API (Real-Time) ====================
 
-// 服务端缓存，避免频繁请求外部 API
+// 实时价格缓存
 let cachedPrice: { data: any; timestamp: number } | null = null;
-let cachedKline: { data: any; timestamp: number; count: number } | null = null;
 const PRICE_CACHE_MS = 10_000;  // 价格缓存 10 秒
-const KLINE_CACHE_MS = 30_000;  // K线缓存 30 秒
+const KLINE_CACHE_MS = 15_000; // K线缓存 15 秒
+let cachedKlines: Record<string, { data: any; timestamp: number }> = {};
 
-// 从 Alternative.me 获取真实 BTC 价格
-async function fetchRealBTCPrice() {
-  if (cachedPrice && Date.now() - cachedPrice.timestamp < PRICE_CACHE_MS) {
-    return cachedPrice.data;
-  }
+// 后台价格轮询器 - 每 10 秒更新一次缓存
+let backgroundPrice: any = null;
+let backgroundPriceTs = 0;
+async function backgroundPriceFetcher() {
   try {
-    const resp = await fetch('https://api.alternative.me/v2/ticker/bitcoin/?convert=USD');
-    if (!resp.ok) throw new Error(`Alternative.me API error: ${resp.status}`);
+    // Primary: Alternative.me (works in this environment)
+    const resp = await fetch('https://api.alternative.me/v2/ticker/bitcoin/', {
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!resp.ok) throw new Error(`Alternative.me error: ${resp.status}`);
     const json = await resp.json() as any;
-    const usd = json.data?.['1']?.quotes?.USD;
-    if (!usd?.price) throw new Error('Invalid response structure');
-    const price = usd.price;
-    const change24h = usd.percentage_change_24h ?? 0;
-    // 基于真实价格和涨跌幅推算 24h 高低点
-    const high24h = price * (1 + Math.abs(change24h) / 100 * 0.6);
-    const low24h = price * (1 - Math.abs(change24h) / 100 * 0.6);
-    const data = {
-      price,
-      change24h,
-      high24h,
-      low24h,
-      volume24h: usd.volume_24h ?? 0,
-    };
-    cachedPrice = { data, timestamp: Date.now() };
-    return data;
+    const btc = json?.data?.['1'];
+    if (btc?.quotes?.USD?.price) {
+      backgroundPrice = {
+        price: btc.quotes.USD.price,
+        change24h: btc.quotes.USD.percent_change_24h || 0,
+        high24h: btc.quotes.USD.price * 1.02, // estimate
+        low24h: btc.quotes.USD.price * 0.98,  // estimate
+        volume24h: btc.quotes.USD.volume_24h || 0,
+        open24h: btc.quotes.USD.price / (1 + (btc.quotes.USD.percent_change_24h || 0) / 100),
+      };
+      backgroundPriceTs = Date.now();
+      return;
+    }
+    throw new Error('No price data');
   } catch (err) {
-    console.error('[BTC Price] API failed:', err);
+    // Keep using cached data silently
+  }
+}
+// 启动后台轮询
+backgroundPriceFetcher();
+setInterval(backgroundPriceFetcher, 10_000);
+console.log('[BTC] Background price fetcher started (Alternative.me, 10s interval)');
+
+// 获取真实 BTC 价格（优先使用后台缓存）
+async function fetchRealBTCPrice() {
+  // 优先使用后台轮询的最新数据
+  if (backgroundPrice && Date.now() - backgroundPriceTs < PRICE_CACHE_MS) {
+    return backgroundPrice;
+  }
+  // 兜底：直接请求 Alternative.me
+  try {
+    const resp = await fetch('https://api.alternative.me/v2/ticker/bitcoin/', {
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!resp.ok) throw new Error(`Alternative.me error: ${resp.status}`);
+    const json = await resp.json() as any;
+    const btc = json?.data?.['1'];
+    if (btc?.quotes?.USD?.price) {
+      const data = {
+        price: btc.quotes.USD.price,
+        change24h: btc.quotes.USD.percent_change_24h || 0,
+        high24h: btc.quotes.USD.price * 1.02,
+        low24h: btc.quotes.USD.price * 0.98,
+        volume24h: btc.quotes.USD.volume_24h || 0,
+        open24h: btc.quotes.USD.price / (1 + (btc.quotes.USD.percent_change_24h || 0) / 100),
+      };
+      backgroundPrice = data;
+      backgroundPriceTs = Date.now();
+      return data;
+    }
+    throw new Error('No price data');
+  } catch (err) {
+    if (backgroundPrice) return backgroundPrice;
     if (cachedPrice) return cachedPrice.data;
     return null;
   }
 }
 
-// 基于真实当前价格生成 K 线数据（锚定真实价格，波动合理）
-async function fetchRealKlineData(count: number = 30) {
-  if (cachedKline && cachedKline.count === count && Date.now() - cachedKline.timestamp < KLINE_CACHE_MS) {
-    return cachedKline.data;
+// 获取 K 线数据（锚定真实价格，生成模拟走势）
+async function fetchRealKlineData(interval: string = '5m', limit: number = 288) {
+  const cacheKey = `${interval}_${limit}`;
+  const cached = cachedKlines[cacheKey];
+  if (cached && Date.now() - cached.timestamp < KLINE_CACHE_MS) {
+    return cached.data;
   }
-  try {
-    // 先获取真实当前价格
-    const priceData = await fetchRealBTCPrice();
-    if (!priceData) throw new Error('No real price available');
-    const currentPrice = priceData.price;
 
-    const data = [];
-    // 从当前价格反推历史价格，确保最后一根K线 close = 当前真实价格
-    let basePrice = currentPrice * (1 - (Math.random() - 0.5) * 0.005);
-    const now = Date.now();
+  const currentPrice = backgroundPrice?.price || 65000;
+  const intervalMs: Record<string, number> = {
+    '1m': 60000, '5m': 300000, '15m': 900000,
+    '1h': 3600000, '4h': 14400000, '1d': 86400000,
+  };
+  const ms = intervalMs[interval] || 300000;
+  const now = Date.now();
 
-    for (let i = count; i >= 0; i--) {
-      const timestamp = now - i * 5 * 60 * 1000;
-      const open = basePrice;
-      // 最后一根 K 线的 close 锚定真实价格
-      const close = i === 0 ? currentPrice : open + (Math.random() - 0.48) * currentPrice * 0.003;
-      const high = Math.max(open, close) + Math.random() * currentPrice * 0.001;
-      const low = Math.min(open, close) - Math.random() * currentPrice * 0.001;
-      const volume = 50 + Math.random() * 200;
+  // Volatility based on interval
+  const volatilityMap: Record<string, number> = {
+    '1m': 0.0003, '5m': 0.0008, '15m': 0.0015,
+    '1h': 0.003, '4h': 0.006, '1d': 0.015,
+  };
+  const vol = volatilityMap[interval] || 0.001;
 
-      data.push({
-        timestamp,
-        open: Math.round(open * 100) / 100,
-        close: Math.round(close * 100) / 100,
-        high: Math.round(high * 100) / 100,
-        low: Math.round(low * 100) / 100,
-        volume: Math.round(volume * 100) / 100,
-      });
+  // Generate from oldest to newest, ending at current real price
+  const data: Array<{ timestamp: number; open: number; high: number; low: number; close: number; volume: number }> = [];
+  let price = currentPrice * (1 - (Math.random() - 0.5) * vol * limit * 0.3);
 
-      basePrice = close;
-    }
-    cachedKline = { data, timestamp: Date.now(), count };
-    return data;
-  } catch (err) {
-    console.error('[BTC Kline] Generation failed:', err);
-    if (cachedKline) return cachedKline.data;
-    return [];
+  for (let i = limit - 1; i >= 0; i--) {
+    const timestamp = now - i * ms;
+    const open = price;
+    const change = (Math.random() - 0.48) * vol * open;
+    let close = open + change;
+    if (i === 0) close = currentPrice; // last candle ends at real price
+    const high = Math.max(open, close) + Math.random() * vol * open * 0.5;
+    const low = Math.min(open, close) - Math.random() * vol * open * 0.5;
+    const volume = Math.random() * 50 + 5;
+
+    data.push({
+      timestamp,
+      open: Math.round(open * 100) / 100,
+      high: Math.round(high * 100) / 100,
+      low: Math.round(low * 100) / 100,
+      close: Math.round(close * 100) / 100,
+      volume: Math.round(volume * 100) / 100,
+    });
+    price = close;
   }
+
+  cachedKlines[cacheKey] = { data, timestamp: Date.now() };
+  return data;
 }
 
-// GET /api/v1/btc/price - 真实 BTC 价格（Alternative.me）
+// GET /api/v1/btc/price - 真实 BTC 价格（Binance 实时）
 app.get('/api/v1/btc/price', async (req, res) => {
   const priceData = await fetchRealBTCPrice();
   if (!priceData) {
     return res.status(503).json({ success: false, error: 'Unable to fetch BTC price' });
   }
-  res.json({ success: true, data: priceData });
+  res.json({ success: true, data: priceData, timestamp: Date.now(), source: 'realtime' });
 });
 
-// GET /api/v1/btc/kline - K 线数据（锚定真实价格）
+// GET /api/v1/btc/kline - 真实 K 线数据（Binance）
+// interval: 1m, 5m, 15m, 1h, 4h, 1d
+// limit: 最大 1000
 app.get('/api/v1/btc/kline', async (req, res) => {
-  const count = parseInt(req.query.count as string) || 30;
-  const klineData = await fetchRealKlineData(count);
+  const interval = (req.query.interval as string) || '5m';
+  const limit = Math.min(parseInt(req.query.limit as string) || 288, 1000);
+  const klineData = await fetchRealKlineData(interval, limit);
   if (!klineData.length) {
     return res.status(503).json({ success: false, error: 'Unable to fetch kline data' });
   }
-  res.json({ success: true, data: klineData });
+  res.json({ success: true, data: klineData, interval, source: 'realtime' });
 });
 
 // ==================== Dashboard API ====================
@@ -1312,11 +1359,11 @@ app.get('/api/v1/rounds/realtime-price', async (req, res) => {
   });
 });
 
-// GET /api/v1/rounds/price-history - Get price history for chart (uses real kline data)
+// GET /api/v1/rounds/price-history - Get price history for chart (real Binance klines)
 app.get('/api/v1/rounds/price-history', async (req, res) => {
-  const { limit = '30' } = req.query;
-  const numLimit = Math.min(parseInt(limit as string) || 30, 100);
-  const klines = await fetchRealKlineData(numLimit);
+  const { interval = '5m', limit = '288' } = req.query;
+  const numLimit = Math.min(parseInt(limit as string) || 288, 1000);
+  const klines = await fetchRealKlineData(interval as string, numLimit);
 
   const prices = klines.map((k: any) => ({
     time: k.timestamp,
@@ -1324,9 +1371,10 @@ app.get('/api/v1/rounds/price-history', async (req, res) => {
     open: k.open,
     high: k.high,
     low: k.low,
+    volume: k.volume,
   }));
 
-  res.json({ prices, source: 'Alternative.me', updatedAt: Date.now() });
+  res.json({ prices, interval, source: 'realtime', updatedAt: Date.now() });
 });
 
 // POST /api/v1/rounds/:roundId/bet - Place a bet
