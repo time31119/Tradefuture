@@ -1259,7 +1259,7 @@ app.post('/api/v1/market-maker/apply', (req, res) => {
 // Uses real BTC price from existing fetchRealBTCPrice() and fetchRealKlineData()
 
 // Virtual base pool for display (platform injects to make pool look active)
-const VIRTUAL_BASE_POOL = 50; // $50 per side virtual base
+const VIRTUAL_BASE_POOL = 100; // $100 per side virtual base
 
 // In-memory storage
 const predictionRounds: any[] = [];
