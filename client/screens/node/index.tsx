@@ -454,28 +454,16 @@ export default function NodeScreen() {
                 {parseFloat(tftAmount) >= 100000 && (
                   <View style={styles.lpDetailsBox}>
                     <View style={styles.lpDetailRow}>
-                      <Text style={styles.lpDetailLabel}>输入TFT</Text>
-                      <Text style={styles.lpDetailValue}>{parseFloat(tftAmount).toLocaleString()} TFT</Text>
-                    </View>
-                    <View style={[styles.lpDetailRow, styles.lpDetailDivider]}>
-                      <Text style={styles.lpDetailLabel}>→ 兑换USDT</Text>
-                      <Text style={styles.lpDetailValue}>{Math.floor(parseFloat(tftAmount) / 2).toLocaleString()} TFT → {Math.floor(parseFloat(tftAmount) / 2 * (data?.tftPrice || 0.001)).toLocaleString()} USDT</Text>
+                      <Text style={styles.lpDetailLabel}>TFT数量</Text>
+                      <Text style={styles.lpDetailValue}>{Math.floor(parseFloat(tftAmount) / 2).toLocaleString()} TFT</Text>
                     </View>
                     <View style={styles.lpDetailRow}>
-                      <Text style={styles.lpDetailLabel}>→ 添加LP</Text>
-                      <Text style={styles.lpDetailValue}>{Math.ceil(parseFloat(tftAmount) / 2).toLocaleString()} TFT + {Math.floor(parseFloat(tftAmount) / 2 * (data?.tftPrice || 0.001)).toLocaleString()} USDT</Text>
+                      <Text style={styles.lpDetailLabel}>USDT等值</Text>
+                      <Text style={[styles.lpDetailValue, styles.lpDetailHighlight]}>+ {Math.floor(parseFloat(tftAmount) / 2 * (data?.tftPrice || 0.001)).toLocaleString()} USDT</Text>
                     </View>
                     <View style={[styles.lpDetailRow, styles.lpDetailDivider]}>
                       <Text style={styles.lpDetailLabel}>获得节点</Text>
                       <Text style={[styles.lpDetailValue, styles.lpDetailHighlight]}>{Math.floor((parseFloat(tftAmount) || 0) / 100000)} 个</Text>
-                    </View>
-                    <View style={styles.lpDetailRow}>
-                      <Text style={styles.lpDetailLabel}>锁仓期限</Text>
-                      <Text style={styles.lpDetailValue}>50期 (约1500天)</Text>
-                    </View>
-                    <View style={styles.lpDetailRow}>
-                      <Text style={styles.lpDetailLabel}>解锁频率</Text>
-                      <Text style={styles.lpDetailValue}>每30天解锁2%</Text>
                     </View>
                   </View>
                 )}
