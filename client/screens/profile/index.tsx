@@ -67,12 +67,29 @@ interface ProfileData {
   }>;
 }
 
+interface NodeData {
+  activeNodes: number;
+  maxNodes: number;
+  pendingRewardsUSDT: number;
+  pendingRewardsTFT: number;
+  totalClaimedRewards: number;
+  lpLocked: number;
+  lpWithdrawable: number;
+  lpUnlockProgress: { current: number; total: number };
+  nextUnlockAmount: number;
+  nextUnlockDays: number;
+  tftPrice: number;
+}
+
 export default function ProfileScreen() {
   const { isConnected, wallet, connect, disconnect } = useWallet();
   const router = useSafeRouter();
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
   const [claiming, setClaiming] = useState(false);
+  const [claimingNode, setClaimingNode] = useState(false);
+  const [withdrawingLp, setWithdrawingLp] = useState(false);
+  const [nodeData, setNodeData] = useState<NodeData | null>(null);
   const [showPoster, setShowPoster] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -104,10 +121,27 @@ export default function ProfileScreen() {
     }
   }, []);
 
+  const fetchNodeData = useCallback(async () => {
+    try {
+      /**
+       * 服务端文件：server/src/index.ts
+       * 接口：GET /api/v1/node/overview
+       */
+      const res = await fetch(`${EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/node/overview`);
+      const result = await res.json();
+      if (result.success) {
+        setNodeData(result.data);
+      }
+    } catch (error) {
+      console.error('Fetch node data error:', error);
+    }
+  }, []);
+
   useFocusEffect(
     useCallback(() => {
       fetchProfile();
-    }, [fetchProfile])
+      fetchNodeData();
+    }, [fetchProfile, fetchNodeData])
   );
 
   const handleClaimReferral = async () => {
@@ -142,6 +176,74 @@ export default function ProfileScreen() {
       console.error('Claim referral error:', error);
     } finally {
       setClaiming(false);
+    }
+  };
+
+  const handleClaimNodeRewards = async () => {
+    if (!isConnected) {
+      connect();
+      return;
+    }
+    if (!nodeData || (nodeData.pendingRewardsUSDT <= 0 && nodeData.pendingRewardsTFT <= 0)) {
+      Alert.alert('提示', '暂无可领取的节点收益');
+      return;
+    }
+    setClaimingNode(true);
+    try {
+      /**
+       * 服务端文件：server/src/index.ts
+       * 接口：POST /api/v1/node/claim
+       */
+      const res = await fetch(`${EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/node/claim`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      const result = await res.json();
+      if (result.success) {
+        Alert.alert(
+          '领取成功',
+          `已领取 ${result.data.claimedUSDT} USDT + ${result.data.claimedTFT} TFT\n\n交易哈希：\n${result.data.txHash.slice(0, 10)}...${result.data.txHash.slice(-8)}`
+        );
+        fetchNodeData();
+      }
+    } catch (error) {
+      console.error('Claim node rewards error:', error);
+    } finally {
+      setClaimingNode(false);
+    }
+  };
+
+  const handleWithdrawLp = async () => {
+    if (!isConnected) {
+      connect();
+      return;
+    }
+    if (!nodeData || nodeData.lpWithdrawable <= 0) {
+      Alert.alert('提示', '暂无可撤回的LP');
+      return;
+    }
+    setWithdrawingLp(true);
+    try {
+      /**
+       * 服务端文件：server/src/index.ts
+       * 接口：POST /api/v1/node/withdraw-lp
+       */
+      const res = await fetch(`${EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/node/withdraw-lp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      const result = await res.json();
+      if (result.success) {
+        Alert.alert(
+          '撤回成功',
+          `已撤回 ${result.data.withdrawn} TFT\n\n交易哈希：\n${result.data.txHash.slice(0, 10)}...${result.data.txHash.slice(-8)}`
+        );
+        fetchNodeData();
+      }
+    } catch (error) {
+      console.error('Withdraw LP error:', error);
+    } finally {
+      setWithdrawingLp(false);
     }
   };
 
@@ -433,6 +535,126 @@ export default function ProfileScreen() {
               </TouchableOpacity>
             </View>
           )}
+        </View>
+
+        {/* Node Earnings Section */}
+        <View style={styles.nodeEarningsCard}>
+          {/* Node Status Header */}
+          <View style={styles.nodeStatusHeader}>
+            <View style={styles.nodeStatusLeft}>
+              <FontAwesome6 name="cubes" size={16} color={COLORS.primary} />
+              <Text style={styles.nodeStatusText}>
+                {nodeData?.activeNodes || 0}/{nodeData?.maxNodes || 0} 活跃节点
+              </Text>
+            </View>
+            <TouchableOpacity onPress={() => router.push('/node')}>
+              <Text style={styles.nodeManageText}>管理节点</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Asset Data Grid */}
+          <View style={styles.nodeDataGrid}>
+            {/* Left Column - USD Related */}
+            <View style={styles.nodeDataColumn}>
+              <View style={styles.nodeDataItem}>
+                <Text style={styles.nodeDataLabel}>待领USDT</Text>
+                <Text style={styles.nodeDataValue}>
+                  ${(nodeData?.pendingRewardsUSDT || 0).toFixed(2)}
+                </Text>
+              </View>
+              <View style={styles.nodeDataItem}>
+                <Text style={styles.nodeDataLabel}>已领USDT</Text>
+                <Text style={styles.nodeDataValue}>
+                  ${((nodeData?.totalClaimedRewards || 0) * 0.8).toFixed(2)}
+                </Text>
+              </View>
+              <View style={styles.nodeDataItem}>
+                <Text style={styles.nodeDataLabel}>我的节点</Text>
+                <Text style={styles.nodeDataValue}>{nodeData?.activeNodes || 0}</Text>
+              </View>
+              <View style={styles.nodeDataItem}>
+                <Text style={styles.nodeDataLabel}>已撤回LP</Text>
+                <Text style={styles.nodeDataValue}>
+                  {((nodeData?.lpLocked || 0) * 0.02 * (nodeData?.lpUnlockProgress?.current || 0)).toLocaleString()}
+                </Text>
+              </View>
+            </View>
+
+            {/* Right Column - TFT/LP Related */}
+            <View style={styles.nodeDataColumn}>
+              <View style={styles.nodeDataItem}>
+                <Text style={styles.nodeDataLabel}>待领TFT</Text>
+                <Text style={styles.nodeDataValue}>
+                  {(nodeData?.pendingRewardsTFT || 0).toFixed(2)}
+                </Text>
+              </View>
+              <View style={styles.nodeDataItem}>
+                <Text style={styles.nodeDataLabel}>总锁仓LP</Text>
+                <Text style={styles.nodeDataValue}>
+                  {(nodeData?.lpLocked || 0).toLocaleString()}
+                </Text>
+              </View>
+              <View style={styles.nodeDataItem}>
+                <Text style={styles.nodeDataLabel}>可撤回LP</Text>
+                <Text style={[styles.nodeDataValue, (nodeData?.lpWithdrawable || 0) > 0 && styles.nodeDataValueHighlight]}>
+                  {(nodeData?.lpWithdrawable || 0).toLocaleString()}
+                </Text>
+              </View>
+              <View style={styles.nodeDataItem}>
+                <Text style={styles.nodeDataLabel}>解锁进度</Text>
+                <Text style={styles.nodeDataValue}>
+                  {nodeData?.lpUnlockProgress?.current || 0}/{nodeData?.lpUnlockProgress?.total || 50}期
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Next Unlock Info */}
+          {nodeData && nodeData.nextUnlockDays > 0 && (
+            <View style={styles.nextUnlockInfo}>
+              <FontAwesome6 name="clock" size={12} color={COLORS.textSecondary} />
+              <Text style={styles.nextUnlockText}>
+                {nodeData.nextUnlockDays}天后解锁 {(nodeData.nextUnlockAmount || 0).toLocaleString()} TFT
+              </Text>
+            </View>
+          )}
+
+          {/* Action Buttons */}
+          <View style={styles.nodeActionButtons}>
+            <TouchableOpacity
+              style={[
+                styles.nodeActionBtn,
+                styles.nodeActionBtnPrimary,
+                (!isConnected || !nodeData || (nodeData.pendingRewardsUSDT <= 0 && nodeData.pendingRewardsTFT <= 0)) && styles.nodeActionBtnDisabled,
+              ]}
+              onPress={handleClaimNodeRewards}
+              disabled={claimingNode}
+            >
+              {claimingNode ? (
+                <ActivityIndicator color={COLORS.background} size="small" />
+              ) : (
+                <Text style={styles.nodeActionBtnText}>
+                  {!isConnected ? '连接钱包' : (nodeData && (nodeData.pendingRewardsUSDT > 0 || nodeData.pendingRewardsTFT > 0)) ? '领取节点收益' : '暂无可领取'}
+                </Text>
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.nodeActionBtn,
+                (!isConnected || !nodeData || nodeData.lpWithdrawable <= 0) && styles.nodeActionBtnDisabled,
+              ]}
+              onPress={handleWithdrawLp}
+              disabled={withdrawingLp}
+            >
+              {withdrawingLp ? (
+                <ActivityIndicator color={COLORS.textSecondary} size="small" />
+              ) : (
+                <Text style={[styles.nodeActionBtnText, styles.nodeActionBtnTextSecondary]}>
+                  {!isConnected ? '连接钱包' : (nodeData && nodeData.lpWithdrawable > 0) ? '撤回LP' : '无可撤回'}
+                </Text>
+              )}
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Invite Section */}
@@ -1570,4 +1792,104 @@ const styles = StyleSheet.create({
   settingsItemText: { fontSize: 14, color: COLORS.textPrimary },
   settingsItemValue: { fontSize: 13, color: COLORS.textSecondary, fontFamily: 'monospace', maxWidth: 160 },
   disconnectBtnText: { fontSize: 14, fontWeight: '700', color: '#EF4444', marginLeft: 8 },
+  // Node Earnings Section
+  nodeEarningsCard: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  nodeStatusHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  nodeStatusLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  nodeStatusText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: COLORS.textPrimary,
+  },
+  nodeManageText: {
+    fontSize: 13,
+    color: COLORS.primary,
+    fontWeight: '600',
+  },
+  nodeDataGrid: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 12,
+  },
+  nodeDataColumn: {
+    flex: 1,
+    gap: 8,
+  },
+  nodeDataItem: {
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderRadius: 10,
+    padding: 10,
+  },
+  nodeDataLabel: {
+    fontSize: 11,
+    color: COLORS.textSecondary,
+    marginBottom: 4,
+  },
+  nodeDataValue: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: COLORS.textPrimary,
+    fontFamily: 'monospace',
+  },
+  nodeDataValueHighlight: {
+    color: COLORS.success,
+  },
+  nextUnlockInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(245,166,35,0.08)',
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 12,
+  },
+  nextUnlockText: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+  },
+  nodeActionButtons: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  nodeActionBtn: {
+    flex: 1,
+    height: 44,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  nodeActionBtnPrimary: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+  },
+  nodeActionBtnDisabled: {
+    opacity: 0.5,
+  },
+  nodeActionBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: COLORS.background,
+  },
+  nodeActionBtnTextSecondary: {
+    color: COLORS.textSecondary,
+  },
 });
