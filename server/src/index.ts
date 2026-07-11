@@ -101,6 +101,65 @@ app.get('/api/v1/role-grant-logs', (req, res) => {
   res.json({ success: true, data: logs });
 });
 
+// ==================== TFT Pool (Real-Time Price) ====================
+
+// TFT/USDT 流动性池 - 内存存储
+let tftPool = {
+  tftReserve: 0,
+  usdtReserve: 0,
+  totalLp: 0,
+};
+
+// 获取 TFT 实时价格（基于池子比例）
+function getTftPrice(): number {
+  if (tftPool.tftReserve > 0 && tftPool.usdtReserve > 0) {
+    return tftPool.usdtReserve / tftPool.tftReserve;
+  }
+  // 池子为空时返回初始价格
+  return 0.01;
+}
+
+// 添加流动性
+function addLiquidity(tftAmount: number, usdtAmount: number): number {
+  let lpMinted = 0;
+  
+  if (tftPool.totalLp === 0) {
+    // 首次添加流动性
+    lpMinted = Math.sqrt(tftAmount * usdtAmount);
+  } else {
+    // 后续添加流动性 - 按比例计算
+    const tftRatio = tftAmount / tftPool.tftReserve;
+    const usdtRatio = usdtAmount / tftPool.usdtReserve;
+    const ratio = Math.min(tftRatio, usdtRatio);
+    lpMinted = tftPool.totalLp * ratio;
+  }
+  
+  tftPool.tftReserve += tftAmount;
+  tftPool.usdtReserve += usdtAmount;
+  tftPool.totalLp += lpMinted;
+  
+  return lpMinted;
+}
+
+// 移除流动性
+function removeLiquidity(lpAmount: number): { tftReturned: number; usdtReturned: number } {
+  if (lpAmount <= 0 || lpAmount > tftPool.totalLp) {
+    return { tftReturned: 0, usdtReturned: 0 };
+  }
+  
+  const share = lpAmount / tftPool.totalLp;
+  const tftReturned = tftPool.tftReserve * share;
+  const usdtReturned = tftPool.usdtReserve * share;
+  
+  tftPool.tftReserve -= tftReturned;
+  tftPool.usdtReserve -= usdtReturned;
+  tftPool.totalLp -= lpAmount;
+  
+  return { tftReturned, usdtReturned };
+}
+
+console.log('[TFT Pool] Initialized with empty pool, default price: $0.01');
+
 // ==================== BTC Price API (Real-Time) ====================
 
 // 实时价格缓存
@@ -363,21 +422,8 @@ app.post('/api/v1/predictions/:id/claim', (req, res) => {
 
 // GET /api/v1/node/overview - Node partner overview
 app.get('/api/v1/node/overview', async (req, res) => {
-  // 获取实时TFT价格
-  const tftPrice = await (async () => {
-    try {
-      const btcPrice = await fetchRealBTCPrice();
-      if (btcPrice > 0) {
-        return btcPrice / 6500000;
-      }
-    } catch (e) {
-      // ignore
-    }
-    // 如果池子为空，使用BTC价格计算参考TFT价格
-    // 假设 1 BTC = 6.5M TFT，则 TFT价格 = BTC价格 / 6,500,000
-    const fallbackBtcPrice = await fetchRealBTCPrice();
-    return fallbackBtcPrice > 0 ? fallbackBtcPrice / 6500000 : 0.01;
-  })();
+  // 获取实时TFT价格（来自流动性池）
+  const tftPrice = await getTftPrice();
 
   res.json({
     success: true,
