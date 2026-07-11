@@ -356,12 +356,12 @@ export default function NodeScreen() {
               <>
                 <View style={styles.acquireDescRow}>
                   <FontAwesome6 name="fire" size={14} color={COLORS.danger} />
-                  <Text style={styles.acquireDesc}>销毁 100,000 TFT 获得 1 个节点</Text>
+                  <Text style={styles.acquireDesc}>销毁 TFT 立即获得节点</Text>
                 </View>
                 <View style={styles.ruleBox}>
                   <FontAwesome6 name="circle-info" size={12} color={COLORS.primary} />
                   <Text style={styles.ruleText}>
-                    销毁的TFT将转入黑洞地址，总量减少。拥有节点可获得美元和TFT分红。已拥有节点的账户不能参与，同一账户只能参与一次。
+                    销毁的TFT将转入黑洞地址，永久减少流通量。拥有节点可获得美元和TFT分红。每个账户限参与一次。
                   </Text>
                 </View>
                 <View style={styles.inputRow}>
@@ -399,6 +399,27 @@ export default function NodeScreen() {
                 <Text style={styles.estimateText}>
                   预计获得: <Text style={styles.estimateValue}>{estimatedNodes}</Text> 个节点
                 </Text>
+                {/* Transaction Summary */}
+                <View style={styles.txSummaryBox}>
+                  <View style={styles.txSummaryHeader}>
+                    <FontAwesome6 name="fire" size={12} color={COLORS.danger} />
+                    <Text style={styles.txSummaryTitle}>交易摘要</Text>
+                  </View>
+                  <View style={styles.txSummaryContent}>
+                    <View style={styles.txSummaryRow}>
+                      <Text style={styles.txSummaryLabel}>销毁数量</Text>
+                      <Text style={styles.txSummaryValue}>{Number(tftAmount).toLocaleString() || '0'} TFT</Text>
+                    </View>
+                    <View style={styles.txSummaryRow}>
+                      <Text style={styles.txSummaryLabel}>获得节点</Text>
+                      <Text style={styles.txSummaryHighlight}>{estimatedNodes} 个</Text>
+                    </View>
+                    <View style={styles.txSummaryRow}>
+                      <Text style={styles.txSummaryLabel}>节点类型</Text>
+                      <Text style={styles.txSummaryValue}>永久节点 (立即解锁)</Text>
+                    </View>
+                  </View>
+                </View>
                 <TouchableOpacity
                   style={[styles.acquireBtn, data?.hasBurned && styles.acquireBtnDisabled]}
                   onPress={handleAcquireNode}
@@ -1058,6 +1079,26 @@ const styles = StyleSheet.create({
   },
   txSummaryContent: {
     gap: 10,
+  },
+  txSummaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 4,
+  },
+  txSummaryLabel: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+  },
+  txSummaryValue: {
+    fontSize: 13,
+    color: COLORS.textPrimary,
+    fontWeight: '500',
+  },
+  txSummaryHighlight: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: COLORS.success,
   },
   txStep: {
     flexDirection: 'row',
