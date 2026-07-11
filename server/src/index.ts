@@ -362,7 +362,23 @@ app.post('/api/v1/predictions/:id/claim', (req, res) => {
 // ==================== Node API ====================
 
 // GET /api/v1/node/overview - Node partner overview
-app.get('/api/v1/node/overview', (req, res) => {
+app.get('/api/v1/node/overview', async (req, res) => {
+  // 获取实时TFT价格
+  const tftPrice = await (async () => {
+    try {
+      const btcPrice = await fetchRealBTCPrice();
+      if (btcPrice > 0) {
+        return btcPrice / 6500000;
+      }
+    } catch (e) {
+      // ignore
+    }
+    // 如果池子为空，使用BTC价格计算参考TFT价格
+    // 假设 1 BTC = 6.5M TFT，则 TFT价格 = BTC价格 / 6,500,000
+    const fallbackBtcPrice = await fetchRealBTCPrice();
+    return fallbackBtcPrice > 0 ? fallbackBtcPrice / 6500000 : 0.01;
+  })();
+
   res.json({
     success: true,
     data: {
@@ -379,7 +395,7 @@ app.get('/api/v1/node/overview', (req, res) => {
       // 节点获取规则
       burnNodePrice: 100000, // 销毁100000 TFT获得1个节点
       lpNodePrice: 100000, // 添加100000 TFT（自动兑换一半为USDT）获得1个节点
-      tftPrice: 0.01, // 当前TFT价格 (USDT)
+      tftPrice: parseFloat(tftPrice.toFixed(6)), // 当前TFT价格 (USDT) - 动态价格
       lpUnlockPeriods: 50, // LP分50期解锁
       lpUnlockInterval: 30, // 每30天解锁一次
       lpUnlockPercentPerPeriod: 2, // 每次解锁2%

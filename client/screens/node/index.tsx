@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -85,6 +85,9 @@ export default function NodeScreen() {
   useFocusEffect(
     useCallback(() => {
       fetchData();
+      // Refresh price every 30 seconds
+      const interval = setInterval(fetchData, 30000);
+      return () => clearInterval(interval);
     }, [fetchData])
   );
 
@@ -459,7 +462,7 @@ export default function NodeScreen() {
                     </View>
                     <View style={styles.lpDetailRow}>
                       <Text style={styles.lpDetailLabel}>USDT等值</Text>
-                      <Text style={[styles.lpDetailValue, styles.lpDetailHighlight]}>+ {Math.floor(parseFloat(tftAmount) / 2 * (data?.tftPrice || 0.001)).toLocaleString()} USDT</Text>
+                      <Text style={[styles.lpDetailValue, styles.lpDetailHighlight]}>+ {(parseFloat(tftAmount) / 2 * (data?.tftPrice || 0.01)).toFixed(2)} USDT</Text>
                     </View>
                     <View style={[styles.lpDetailRow, styles.lpDetailDivider]}>
                       <Text style={styles.lpDetailLabel}>获得节点</Text>
