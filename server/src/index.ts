@@ -1463,7 +1463,7 @@ app.get('/api/v1/rounds/price-history', async (req, res) => {
     volume: k.volume,
   }));
 
-  res.json({ prices, interval, source: 'realtime', updatedAt: Date.now() });
+  res.json({ success: true, data: { prices, interval, source: 'realtime', updatedAt: Date.now() } });
 });
 
 // POST /api/v1/rounds/:roundId/bet - Place a bet
