@@ -5,6 +5,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { WebOnlyColorSchemeUpdater } from './ColorSchemeUpdater';
 import { WebOnlyPrettyScrollbar } from './PrettyScrollbar'
 import { HeroUINativeProvider } from '@/heroui';
+import { WalletModal } from './WalletModal';
 
 function Provider({ children }: { children: ReactNode }) {
   return (
@@ -15,6 +16,7 @@ function Provider({ children }: { children: ReactNode }) {
             <GestureHandlerRootView style={{ flex: 1 }}>
               <HeroUINativeProvider>
                 {children}
+                <WalletModal />
               </HeroUINativeProvider>
             </GestureHandlerRootView>
           </WalletProvider>

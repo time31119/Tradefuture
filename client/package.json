@@ -27,6 +27,8 @@
     "@react-navigation/bottom-tabs": "^7.2.0",
     "@react-navigation/native": "^7.0.14",
     "@tanstack/react-query": "^5.101.2",
+    "@walletconnect/ethereum-provider": "^2.23.10",
+    "@walletconnect/types": "^2.23.10",
     "dayjs": "^1.11.20",
     "ethers": "^6.13.0",
     "expo": "54.0.33",

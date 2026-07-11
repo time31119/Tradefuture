@@ -93,7 +93,7 @@ function OverviewCard({ label, value, icon, color, onPress, valueColor }: Overvi
 
 export default function HomeScreen() {
   const router = useSafeRouter();
-  const { isConnected, wallet, isConnecting, connect } = useWallet();
+  const { isConnected, wallet, isConnecting, setShowWalletModal } = useWallet();
   const [overview, setOverview] = useState<OverviewData | null>(null);
   const [btcPrice, setBtcPrice] = useState<BTCPrice | null>(null);
   const [klineData, setKlineData] = useState<KlineItem[]>([]);
@@ -329,7 +329,7 @@ export default function HomeScreen() {
   // Quick bet handlers
   const openBetModal = (direction: 'up' | 'down') => {
     if (!isConnected) {
-      connect();
+      setShowWalletModal(true);
       return;
     }
     setBetDirection(direction);
@@ -377,7 +377,7 @@ export default function HomeScreen() {
   // Claim handler
   const handleClaim = async (predictionId: number) => {
     if (!isConnected) {
-      connect();
+      setShowWalletModal(true);
       return;
     }
 
@@ -467,7 +467,7 @@ export default function HomeScreen() {
             ) : (
               <TouchableOpacity 
                 style={[styles.connectBtn, isConnecting && styles.connectBtnDisabled]} 
-                onPress={connect}
+                onPress={() => setShowWalletModal(true)}
                 disabled={isConnecting}
               >
                 {isConnecting ? (

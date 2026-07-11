@@ -1,6 +1,12 @@
 /**
  * Web3 配置 - BSC (BNB Smart Chain)
+ * 支持 MetaMask 和 WalletConnect
  */
+
+import { EthereumProvider } from '@walletconnect/ethereum-provider';
+
+// WalletConnect 项目 ID（需要在 https://cloud.walletconnect.com 注册获取）
+export const WALLETCONNECT_PROJECT_ID = 'a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6';
 
 // BSC 链配置
 export const BSC_CONFIG = {
@@ -87,6 +93,39 @@ declare global {
       request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
       on: (event: string, callback: (...args: unknown[]) => void) => void;
       removeListener: (event: string, callback: (...args: unknown[]) => void) => void;
+      disconnect?: () => void;
     };
   }
 }
+
+// WalletConnect 配置
+export const WALLETCONNECT_CONFIG = {
+  projectId: WALLETCONNECT_PROJECT_ID,
+  chains: [BSC_CONFIG.mainnet.chainId],
+  optionalChains: [BSC_CONFIG.testnet.chainId],
+  showQrModal: true,
+  metadata: {
+    name: 'TradeFuture',
+    description: 'TradeFuture - Prediction Market DApp',
+    url: 'http://52.0.34.78',
+    icons: ['https://52.0.34.78/favicon.ico'],
+  },
+};
+
+// 创建 WalletConnect Provider
+export const createWalletConnectProvider = async () => {
+  if (!isBrowser()) return null;
+  
+  try {
+    const provider = await EthereumProvider.init({
+      projectId: WALLETCONNECT_CONFIG.projectId,
+      chains: WALLETCONNECT_CONFIG.chains,
+      showQrModal: WALLETCONNECT_CONFIG.showQrModal,
+      metadata: WALLETCONNECT_CONFIG.metadata,
+    } as any);
+    return provider;
+  } catch (error) {
+    console.error('Failed to create WalletConnect provider:', error);
+    return null;
+  }
+};
