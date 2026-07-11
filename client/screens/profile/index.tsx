@@ -657,38 +657,60 @@ export default function ProfileScreen() {
           </View>
         </View>
 
-        {/* Invite Section */}
-        <View style={styles.inviteCard}>
-          <Text style={styles.inviteTitle}>邀请推荐</Text>
-          <View style={styles.inviteInfo}>
-            <View style={styles.inviteRow}>
-              <Text style={styles.inviteLabel}>邀请人:</Text>
-              <Text style={styles.inviteValue}>{profile?.inviter || '无'}</Text>
-            </View>
-            <View style={styles.inviteRow}>
-              <Text style={styles.inviteLabel}>我的邀请码:</Text>
-              <Text style={styles.inviteCode}>{profile?.inviteCode || '--'}</Text>
+        {/* Invite Section - Optimized */}
+        <View style={styles.inviteCardNew}>
+          {/* Header with gradient effect */}
+          <View style={styles.inviteHeader}>
+            <View style={styles.inviteHeaderLeft}>
+              <View style={styles.inviteIconBox}>
+                <FontAwesome6 name="user-plus" size={18} color={COLORS.primary} />
+              </View>
+              <View>
+                <Text style={styles.inviteTitleNew}>邀请好友 赚取奖励</Text>
+                <Text style={styles.inviteSubtitle}>分享链接，获得推荐奖励</Text>
+              </View>
             </View>
           </View>
-          <View style={styles.inviteActions}>
-            <TouchableOpacity style={styles.inviteActionBtn} onPress={handleCopyInvite}>
-              <FontAwesome6 name="copy" size={12} color={COLORS.primary} />
-              <Text style={styles.inviteActionText}>复制链接</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.inviteActionBtn} onPress={handleInvitePoster}>
-              <FontAwesome6 name="image" size={12} color={COLORS.primary} />
-              <Text style={styles.inviteActionText}>邀请海报</Text>
+
+          {/* Invite Code Display */}
+          <View style={styles.inviteCodeBox}>
+            <View style={styles.inviteCodeLeft}>
+              <Text style={styles.inviteCodeLabel}>我的邀请码</Text>
+              <Text style={styles.inviteCodeValue}>{profile?.inviteCode || '--'}</Text>
+            </View>
+            <TouchableOpacity style={styles.inviteCopyBtn} onPress={handleCopyInvite}>
+              <FontAwesome6 name="copy" size={14} color={COLORS.primary} />
             </TouchableOpacity>
           </View>
-          <View style={styles.inviteStats}>
-            <View style={styles.inviteStatItem}>
-              <Text style={styles.inviteStatValue}>{profile?.directReferrals || 0}</Text>
-              <Text style={styles.inviteStatLabel}>直推人数</Text>
+
+          {/* Stats Row */}
+          <View style={styles.inviteStatsRow}>
+            <View style={styles.inviteStatBox}>
+              <Text style={styles.inviteStatNum}>{profile?.directReferrals || 0}</Text>
+              <Text style={styles.inviteStatDesc}>直推人数</Text>
             </View>
-            <View style={styles.inviteStatItem}>
-              <Text style={styles.inviteStatValue}>${(profile?.teamVolume || 0).toLocaleString()}</Text>
-              <Text style={styles.inviteStatLabel}>团队预测额</Text>
+            <View style={styles.inviteStatDivider} />
+            <View style={styles.inviteStatBox}>
+              <Text style={styles.inviteStatNum}>${(profile?.teamVolume || 0).toLocaleString()}</Text>
+              <Text style={styles.inviteStatDesc}>团队预测额</Text>
             </View>
+            <View style={styles.inviteStatDivider} />
+            <View style={styles.inviteStatBox}>
+              <Text style={styles.inviteStatNum}>{profile?.inviter ? '已绑定' : '无'}</Text>
+              <Text style={styles.inviteStatDesc}>邀请人</Text>
+            </View>
+          </View>
+
+          {/* Action Buttons */}
+          <View style={styles.inviteActionRow}>
+            <TouchableOpacity style={styles.inviteShareBtn} onPress={handleCopyInvite}>
+              <FontAwesome6 name="share-nodes" size={14} color={COLORS.background} />
+              <Text style={styles.inviteShareBtnText}>分享链接</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.invitePosterBtn} onPress={handleInvitePoster}>
+              <FontAwesome6 name="image" size={14} color={COLORS.primary} />
+              <Text style={styles.invitePosterBtnText}>邀请海报</Text>
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -1348,6 +1370,141 @@ const styles = StyleSheet.create({
   },
   inviteStatValue: { fontSize: 18, fontWeight: '700', color: COLORS.textPrimary, fontFamily: 'monospace' },
   inviteStatLabel: { fontSize: 11, color: COLORS.textSecondary, marginTop: 4 },
+  // Invite Card New (Optimized)
+  inviteCardNew: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  inviteHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  inviteHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  inviteIconBox: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: 'rgba(245,166,35,0.12)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  inviteTitleNew: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: COLORS.textPrimary,
+  },
+  inviteSubtitle: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    marginTop: 2,
+  },
+  inviteCodeBox: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: COLORS.background,
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  inviteCodeLeft: {
+    gap: 4,
+  },
+  inviteCodeLabel: {
+    fontSize: 11,
+    color: COLORS.textSecondary,
+  },
+  inviteCodeValue: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: COLORS.primary,
+    fontFamily: 'monospace',
+    letterSpacing: 2,
+  },
+  inviteCopyBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: 'rgba(245,166,35,0.12)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  inviteStatsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.background,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 16,
+  },
+  inviteStatBox: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  inviteStatNum: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: COLORS.textPrimary,
+    fontFamily: 'monospace',
+  },
+  inviteStatDesc: {
+    fontSize: 10,
+    color: COLORS.textSecondary,
+    marginTop: 4,
+  },
+  inviteStatDivider: {
+    width: 1,
+    height: 28,
+    backgroundColor: COLORS.border,
+  },
+  inviteActionRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  inviteShareBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: COLORS.primary,
+    borderRadius: 12,
+    paddingVertical: 12,
+  },
+  inviteShareBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: COLORS.background,
+  },
+  invitePosterBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(245,166,35,0.12)',
+    borderRadius: 12,
+    paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(245,166,35,0.3)',
+  },
+  invitePosterBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: COLORS.primary,
+  },
   // Team Section
   teamSection: { marginBottom: 16 },
   sectionTitle: { fontSize: 15, fontWeight: '700', color: COLORS.textPrimary, marginBottom: 12 },
