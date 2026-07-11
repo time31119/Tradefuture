@@ -338,7 +338,7 @@ export default function NodeScreen() {
               style={[styles.methodTab, acquireMethod === 'lp' && styles.methodTabActive]}
               onPress={() => {
                 setAcquireMethod('lp');
-                setTftAmount('50000');
+                setTftAmount('100000');
               }}
             >
               <FontAwesome6 name="droplet" size={12} color={acquireMethod === 'lp' ? COLORS.primary : COLORS.textSecondary} />
