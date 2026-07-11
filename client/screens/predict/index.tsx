@@ -142,16 +142,16 @@ export default function PredictScreen() {
       const limit = limitMap[iv] || 288;
       const res = await fetch(`${API_BASE}/api/v1/rounds/price-history?interval=${iv}&limit=${limit}`);
       const data = await res.json();
-      if (data.prices && data.prices.length > 0) {
-        const chartData = data.prices.map((p: { time: number; price: number }) => ({
+      if (data.data && data.data.length > 0) {
+        const chartData = data.data.map((p: { time: number; price: number }) => ({
           value: p.price,
         }));
         setPriceHistory(chartData);
-        const firstPrice = data.prices[0].price;
-        const lastPrice = data.prices[data.prices.length - 1].price;
+        const firstPrice = data.data[0].price;
+        const lastPrice = data.data[data.data.length - 1].price;
         setPriceChange(((lastPrice - firstPrice) / firstPrice) * 100);
-        setChartHigh(Math.max(...data.prices.map((p: { high?: number; price: number }) => p.high || p.price)));
-        setChartLow(Math.min(...data.prices.map((p: { low?: number; price: number }) => p.low || p.price)));
+        setChartHigh(Math.max(...data.data.map((p: { high?: number; price: number }) => p.high || p.price)));
+        setChartLow(Math.min(...data.data.map((p: { low?: number; price: number }) => p.low || p.price)));
       }
     } catch (error) {
       console.error('Failed to fetch price history:', error);
