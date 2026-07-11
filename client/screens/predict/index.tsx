@@ -183,19 +183,26 @@ export default function PredictScreen() {
 
   useFocusEffect(
     useCallback(() => {
+      if (deviceId) {
+        fetchRounds();
+        fetchHistory();
+        fetchPriceHistory();
+        fetchRealtimePrice();
+      }
+    }, [fetchPriceHistory, deviceId])
+  );
+
+  useEffect(() => {
+    if (deviceId) {
       fetchRounds();
       fetchHistory();
       fetchPriceHistory();
       fetchRealtimePrice();
-    }, [fetchPriceHistory])
-  );
-
-  useEffect(() => {
-    fetchRounds();
-    fetchHistory();
-    fetchPriceHistory();
-    fetchRealtimePrice();
-  }, [fetchPriceHistory]);
+    } else {
+      // If deviceId fails to load, still stop loading
+      setLoading(false);
+    }
+  }, [fetchPriceHistory, deviceId]);
 
   // Real-time price polling every 5 seconds
   useEffect(() => {
