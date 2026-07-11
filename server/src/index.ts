@@ -1414,10 +1414,51 @@ app.get('/api/v1/rounds/current', async (req, res) => {
   if (priceData) {
     current.currentPrice = priceData.price.toString();
   }
-  const vouchers = predictionBets.filter(
-    b => b.roundId === current.roundId && b.deviceId === deviceId && !b.claimed
+  // Calculate remaining seconds for countdown
+  const now = Date.now();
+  const remainingMs = Math.max(0, current.endTime - now);
+  const remainingSeconds = Math.ceil(remainingMs / 1000);
+  // Calculate expected profit for both sides
+  const upAmount = parseFloat(current.upAmount);
+  const downAmount = parseFloat(current.downAmount);
+  const totalPool = upAmount + downAmount;
+  const calcExpectedProfit = (betAmount: number, side: string) => {
+    if (totalPool === 0) {
+      // First bet - estimated 97% return (after 3% fee)
+      return { profitRate: '0.00', profitAmount: '0.00', multiplier: '1.00' };
+    }
+    const sideAmount = side === 'up' ? upAmount : downAmount;
+    const newSideAmount = sideAmount + betAmount * (1 - FEE_RATE);
+    const newTotalPool = totalPool + betAmount * (1 - FEE_RATE);
+    const winnerPool = newTotalPool * WINNER_SHARE;
+    const userShare = newSideAmount > 0 ? betAmount * (1 - FEE_RATE) / newSideAmount : 0;
+    const estimatedPayout = winnerPool * userShare;
+    const profit = estimatedPayout - betAmount;
+    const profitRate = betAmount > 0 ? (profit / betAmount) * 100 : 0;
+    const multiplier = betAmount > 0 ? estimatedPayout / betAmount : 1;
+    return {
+      profitRate: profitRate.toFixed(2),
+      profitAmount: profit.toFixed(2),
+      multiplier: multiplier.toFixed(2),
+    };
+  };
+  // Get all user bets (not just unclaimed)
+  const userBets = predictionBets.filter(
+    b => b.roundId === current.roundId && b.deviceId === deviceId
   );
-  res.json({ current, vouchers, btcPrice: priceData?.price || 0 });
+  // Get round number (期数)
+  const roundNumber = current.id;
+  res.json({
+    current: {
+      ...current,
+      remainingSeconds,
+      roundNumber,
+      expectedProfitUp: calcExpectedProfit(10, 'up'), // For $10 bet
+      expectedProfitDown: calcExpectedProfit(10, 'down'),
+    },
+    vouchers: userBets,
+    btcPrice: priceData?.price || 0,
+  });
 });
 
 // GET /api/v1/rounds/history - Get round history
@@ -1483,9 +1524,18 @@ app.post('/api/v1/rounds/:roundId/bet', (req, res) => {
   const betAmount = parseFloat(amount);
   if (betAmount < 1) return res.status(400).json({ success: false, error: 'Minimum bet is $1' });
 
+  // Check remaining time
+  const remainingMs = round.endTime - Date.now();
+  const remainingSeconds = Math.ceil(remainingMs / 1000);
+  if (remainingSeconds <= 0) {
+    return res.status(400).json({ success: false, error: 'Time expired, please wait for next round' });
+  }
+
   // Update round totals
-  const fee = betAmount * 0.03; // 3% fee
+  const fee = betAmount * FEE_RATE;
   const netAmount = betAmount - fee;
+  const prevUpAmount = parseFloat(round.upAmount);
+  const prevDownAmount = parseFloat(round.downAmount);
   round.totalAmount = (parseFloat(round.totalAmount) + netAmount).toString();
   if (side === 'up') {
     round.upAmount = (parseFloat(round.upAmount) + netAmount).toString();
@@ -1493,14 +1543,34 @@ app.post('/api/v1/rounds/:roundId/bet', (req, res) => {
     round.downAmount = (parseFloat(round.downAmount) + netAmount).toString();
   }
 
+  // Calculate expected profit at time of bet
+  const newTotalPool = parseFloat(round.totalAmount);
+  const newSideAmount = side === 'up' ? parseFloat(round.upAmount) : parseFloat(round.downAmount);
+  const winnerPool = newTotalPool * WINNER_SHARE;
+  const userShare = newSideAmount > 0 ? netAmount / newSideAmount : 0;
+  const estimatedPayout = winnerPool * userShare;
+  const profit = estimatedPayout - betAmount;
+  const profitRate = betAmount > 0 ? (profit / betAmount) * 100 : 0;
+  const multiplier = betAmount > 0 ? estimatedPayout / betAmount : 1;
+
+  // Generate unique bet ID for receipt
+  const betId = `BET-${Date.now()}-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
+
   const bet = {
     id: predictionBets.length + 1,
+    betId,
     roundId,
+    roundNumber: round.id,
     deviceId,
     side,
     amount: betAmount.toString(),
     fee: fee.toString(),
     netAmount: netAmount.toString(),
+    basePrice: round.basePrice, // Price at time of bet
+    expectedProfit: profit.toFixed(2),
+    expectedProfitRate: profitRate.toFixed(2),
+    expectedMultiplier: multiplier.toFixed(2),
+    remainingSecondsAtBet: remainingSeconds,
     claimed: false,
     won: false,
     payout: '0',
@@ -1508,7 +1578,12 @@ app.post('/api/v1/rounds/:roundId/bet', (req, res) => {
   };
   predictionBets.push(bet);
 
-  res.json({ success: true, bet });
+  res.json({
+    success: true,
+    bet,
+    remainingSeconds,
+    message: `Bet placed! ${remainingSeconds}s remaining in round ${round.id}`,
+  });
 });
 
 // POST /api/v1/rounds/:roundId/claim - Claim winnings (pure pool model)
@@ -1582,6 +1657,128 @@ app.post('/api/v1/rounds/:roundId/claim', (req, res) => {
     winnerPool: round.winnerPool,
     insurancePool: round.insurancePool,
     userShare: bet.share || '0%',
+  });
+});
+
+// GET /api/v1/rounds/bet/:betId - Get bet receipt/detail
+app.get('/api/v1/rounds/bet/:betId', (req, res) => {
+  const { betId } = req.params;
+  const bet = predictionBets.find(b => b.betId === betId);
+  if (!bet) return res.status(404).json({ success: false, error: 'Bet not found' });
+
+  const round = predictionRounds.find(r => r.roundId === bet.roundId);
+  if (!round) return res.status(404).json({ success: false, error: 'Round not found' });
+
+  // Calculate actual result
+  const userWon = bet.side === round.winnerSide;
+  const actualPayout = bet.claimed ? parseFloat(bet.payout) : 0;
+  const profit = actualPayout - parseFloat(bet.amount);
+
+  res.json({
+    success: true,
+    data: {
+      betId: bet.betId,
+      roundNumber: round.id,
+      roundId: bet.roundId,
+      side: bet.side,
+      amount: bet.amount,
+      fee: bet.fee,
+      netAmount: bet.netAmount,
+      basePrice: bet.basePrice,
+      closePrice: round.closePrice,
+      expectedProfit: bet.expectedProfit,
+      expectedProfitRate: bet.expectedProfitRate,
+      expectedMultiplier: bet.expectedMultiplier,
+      remainingSecondsAtBet: bet.remainingSecondsAtBet,
+      status: round.status,
+      winnerSide: round.winnerSide,
+      userWon: round.status === 'completed' ? userWon : null,
+      actualPayout: bet.claimed ? bet.payout : null,
+      actualProfit: round.status === 'completed' && bet.claimed ? profit.toFixed(2) : null,
+      createdAt: bet.createdAt,
+      roundStartTime: round.startTime,
+      roundEndTime: round.endTime,
+    },
+  });
+});
+
+// GET /api/v1/rounds/my-bets - Get all user bets with full details
+app.get('/api/v1/rounds/my-bets', (req, res) => {
+  const { deviceId, limit = '50' } = req.query;
+  if (!deviceId) return res.status(400).json({ success: false, error: 'deviceId required' });
+
+  const bets = predictionBets
+    .filter(b => b.deviceId === deviceId)
+    .slice(-parseInt(limit as string))
+    .reverse()
+    .map(bet => {
+      const round = predictionRounds.find(r => r.roundId === bet.roundId);
+      const userWon = round?.winnerSide ? bet.side === round.winnerSide : null;
+      return {
+        betId: bet.betId,
+        roundNumber: round?.id || bet.roundNumber,
+        roundId: bet.roundId,
+        side: bet.side,
+        amount: bet.amount,
+        basePrice: bet.basePrice,
+        closePrice: round?.closePrice || null,
+        expectedProfit: bet.expectedProfit,
+        expectedProfitRate: bet.expectedProfitRate,
+        status: round?.status || 'unknown',
+        winnerSide: round?.winnerSide || null,
+        userWon,
+        claimed: bet.claimed,
+        payout: bet.payout,
+        createdAt: bet.createdAt,
+      };
+    });
+
+  res.json({ success: true, data: bets });
+});
+
+// GET /api/v1/rounds/calculate-profit - Calculate expected profit for a bet amount
+app.get('/api/v1/rounds/calculate-profit', async (req, res) => {
+  const { amount, side } = req.query;
+  const betAmount = parseFloat(amount as string);
+  if (!betAmount || betAmount <= 0) {
+    return res.status(400).json({ success: false, error: 'Invalid amount' });
+  }
+  if (!side || !['up', 'down'].includes(side as string)) {
+    return res.status(400).json({ success: false, error: 'Invalid side' });
+  }
+
+  const current = await getCurrentRound();
+  const upAmount = parseFloat(current.upAmount);
+  const downAmount = parseFloat(current.downAmount);
+  const netAmount = betAmount * (1 - FEE_RATE);
+  const fee = betAmount * FEE_RATE;
+
+  const currentSideAmount = side === 'up' ? upAmount : downAmount;
+  const newTotalPool = upAmount + downAmount + netAmount;
+  const newSideAmount = currentSideAmount + netAmount;
+  const winnerPool = newTotalPool * WINNER_SHARE;
+  const userShare = newSideAmount > 0 ? netAmount / newSideAmount : 0;
+  const estimatedPayout = winnerPool * userShare;
+  const profit = estimatedPayout - betAmount;
+  const profitRate = (profit / betAmount) * 100;
+  const multiplier = estimatedPayout / betAmount;
+
+  res.json({
+    success: true,
+    data: {
+      betAmount: betAmount.toFixed(2),
+      fee: fee.toFixed(2),
+      netAmount: netAmount.toFixed(2),
+      estimatedPayout: estimatedPayout.toFixed(2),
+      profit: profit.toFixed(2),
+      profitRate: profitRate.toFixed(2),
+      multiplier: multiplier.toFixed(2),
+      currentPool: {
+        total: (upAmount + downAmount).toFixed(2),
+        up: upAmount.toFixed(2),
+        down: downAmount.toFixed(2),
+      },
+    },
   });
 });
 

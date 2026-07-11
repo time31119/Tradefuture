@@ -5,10 +5,14 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  TouchableWithoutFeedback,
   ActivityIndicator,
   TextInput,
   RefreshControl,
+  Modal,
+  Platform,
   Dimensions,
+  Keyboard,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -44,18 +48,67 @@ interface Round {
   startTime: number;
   endTime: number;
   basePrice: string;
+  currentPrice: string;
   closePrice: string;
   totalAmount: string;
   upAmount: string;
   downAmount: string;
   winnerSide: string;
   insurancePool: string;
+  remainingSeconds: number;
+  roundNumber: number;
+  expectedProfitUp: { profitRate: string; profitAmount: string; multiplier: string };
+  expectedProfitDown: { profitRate: string; profitAmount: string; multiplier: string };
   userBet?: {
     side: string;
     amount: string;
     claimed: boolean;
     payout: string;
   };
+}
+
+interface BetRecord {
+  id: number;
+  betId: string;
+  roundId: string;
+  roundNumber: number;
+  side: string;
+  amount: string;
+  fee: string;
+  netAmount: string;
+  basePrice: string;
+  expectedProfit: string;
+  expectedProfitRate: string;
+  expectedMultiplier: string;
+  remainingSecondsAtBet: number;
+  claimed: boolean;
+  won: boolean;
+  payout: string;
+  createdAt: string;
+}
+
+interface BetDetail {
+  betId: string;
+  roundNumber: number;
+  roundId: string;
+  side: string;
+  amount: string;
+  fee: string;
+  netAmount: string;
+  basePrice: string;
+  closePrice: string | null;
+  expectedProfit: string;
+  expectedProfitRate: string;
+  expectedMultiplier: string;
+  remainingSecondsAtBet: number;
+  status: string;
+  winnerSide: string | null;
+  userWon: boolean | null;
+  actualPayout: string | null;
+  actualProfit: string | null;
+  createdAt: string;
+  roundStartTime: number;
+  roundEndTime: number;
 }
 
 export default function PredictScreen() {
@@ -69,6 +122,7 @@ export default function PredictScreen() {
   const [activeTab, setActiveTab] = useState<'current' | 'history' | 'rules'>('current');
   const [myVouchers, setMyVouchers] = useState<any[]>([]);
   const [myHistory, setMyHistory] = useState<any[]>([]);
+  const [betDetail, setBetDetail] = useState<any>(null);
   const [timeLeft, setTimeLeft] = useState(0);
   const [priceHistory, setPriceHistory] = useState<{ value: number; label?: string }[]>([]);
   const [priceChange, setPriceChange] = useState(0);
@@ -79,6 +133,9 @@ export default function PredictScreen() {
   const [chartHigh, setChartHigh] = useState(0);
   const [chartLow, setChartLow] = useState(0);
   const [deviceId, setDeviceId] = useState<string>('');
+  const [showBetDetail, setShowBetDetail] = useState(false);
+  const [selectedBetDetail, setSelectedBetDetail] = useState<BetDetail | null>(null);
+  const [loadingDetail, setLoadingDetail] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const priceTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const chartTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -157,6 +214,26 @@ export default function PredictScreen() {
       console.error('Failed to fetch price history:', error);
     }
   }, [chartInterval]);
+
+  /**
+   * 服务端文件：server/src/index.ts
+   * 接口：GET /api/v1/rounds/bet/:betId
+   */
+  const fetchBetDetail = async (betId: string) => {
+    setLoadingDetail(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/v1/rounds/bet/${betId}`);
+      const data = await res.json();
+      if (data.success && data.data) {
+        setSelectedBetDetail(data.data);
+        setShowBetDetail(true);
+      }
+    } catch (error) {
+      console.error('Failed to fetch bet detail:', error);
+    } finally {
+      setLoadingDetail(false);
+    }
+  };
 
   /**
    * 服务端文件：server/src/index.ts
@@ -256,6 +333,10 @@ export default function PredictScreen() {
       alert('最小下注金额为 $1');
       return;
     }
+    if (timeLeft <= 0) {
+      alert('本期交易已截止，请等待下一期');
+      return;
+    }
 
     setSubmitting(true);
     try {
@@ -270,7 +351,8 @@ export default function PredictScreen() {
       });
       const data = await res.json();
       if (data.success) {
-        alert(`下注成功！$${betAmount} ${selectedSide === 'up' ? '涨' : '跌'}`);
+        const bet = data.bet || {};
+        alert(`下注成功！\n第 ${currentRound.roundNumber || '--'} 期 | ${selectedSide === 'up' ? '买涨' : '买跌'} $${betAmount}\n预期收益: $${bet.expectedProfit || '--'} (${bet.expectedProfitRate || '--'}%)`);
         setSelectedSide(null);
         setAmount('');
         fetchRounds();
@@ -283,6 +365,37 @@ export default function PredictScreen() {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  // Calculate expected profit for current input
+  const getExpectedProfit = () => {
+    if (!currentRound || !amount || !selectedSide) return null;
+    const betAmt = parseFloat(amount);
+    if (betAmt < 1) return null;
+
+    const upAmount = parseFloat(currentRound.upAmount) || 0;
+    const downAmount = parseFloat(currentRound.downAmount) || 0;
+    const netAmount = betAmt * 0.97;
+    const fee = betAmt * 0.03;
+
+    const currentSideAmount = selectedSide === 'up' ? upAmount : downAmount;
+    const newTotalPool = upAmount + downAmount + netAmount;
+    const newSideAmount = currentSideAmount + netAmount;
+    const winnerPool = newTotalPool * 0.80;
+    const userShare = newSideAmount > 0 ? netAmount / newSideAmount : 0;
+    const estimatedPayout = winnerPool * userShare;
+    const profit = estimatedPayout - betAmt;
+    const profitRate = betAmt > 0 ? (profit / betAmt) * 100 : 0;
+    const multiplier = betAmt > 0 ? estimatedPayout / betAmt : 1;
+
+    return {
+      fee: fee.toFixed(2),
+      netAmount: netAmount.toFixed(2),
+      estimatedPayout: estimatedPayout.toFixed(2),
+      profit: profit.toFixed(2),
+      profitRate: profitRate.toFixed(2),
+      multiplier: multiplier.toFixed(2),
+    };
   };
 
   const handleClaim = async (roundId: string) => {
@@ -312,15 +425,25 @@ export default function PredictScreen() {
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
+  const formatDateTime = (isoStr: string) => {
+    const d = new Date(isoStr);
+    return `${d.getMonth() + 1}/${d.getDate()} ${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}:${d.getSeconds().toString().padStart(2, '0')}`;
+  };
+
   const getStatusBadge = () => {
     if (!currentRound) return null;
     const status = currentRound.status;
     if (status === 'betting') {
+      const isUrgent = timeLeft <= 30;
       return (
-        <View style={styles.statusBadge}>
-          <View style={[styles.statusDot, { backgroundColor: '#22C55E' }]} />
-          <Text style={styles.statusText}>进行中</Text>
-          <Text style={styles.statusTime}>{formatTime(timeLeft)}</Text>
+        <View style={[styles.statusBadge, isUrgent && { backgroundColor: 'rgba(239, 68, 68, 0.15)' }]}>
+          <View style={[styles.statusDot, { backgroundColor: isUrgent ? '#EF4444' : '#22C55E' }]} />
+          <Text style={[styles.statusText, isUrgent && { color: '#EF4444' }]}>
+            {isUrgent ? '即将截止' : '交易中'}
+          </Text>
+          <Text style={[styles.statusTime, isUrgent && { color: '#EF4444' }]}>
+            {formatTime(timeLeft)}
+          </Text>
         </View>
       );
     } else if (status === 'locked') {
@@ -384,6 +507,45 @@ export default function PredictScreen() {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
           showsVerticalScrollIndicator={false}
         >
+          {/* Round Info Bar */}
+          {currentRound && (
+            <View style={styles.roundInfoBar}>
+              <View style={styles.roundInfoLeft}>
+                <Text style={styles.roundNumber}>第 {currentRound.roundNumber || '--'} 期</Text>
+                <Text style={styles.roundStatusText}>5分钟周期</Text>
+              </View>
+              <View style={styles.countdownTimer}>
+                <FontAwesome6 name="clock" size={12} color={timeLeft <= 30 ? '#EF4444' : '#9CA3AF'} />
+                <Text style={[styles.countdownText, timeLeft <= 30 && styles.countdownTextUrgent]}>
+                  {formatTime(timeLeft)}
+                </Text>
+              </View>
+            </View>
+          )}
+
+          {/* Countdown Progress Bar */}
+          {currentRound && currentRound.status === 'betting' && (
+            <View style={styles.countdownBar}>
+              <View style={{ height: 3, backgroundColor: COLORS.border, borderRadius: 2, overflow: 'hidden' }}>
+                <View
+                  style={[
+                    styles.countdownFill,
+                    {
+                      width: `${Math.min(100, (timeLeft / 300) * 100)}%`,
+                      backgroundColor: timeLeft <= 30 ? '#EF4444' : timeLeft <= 60 ? '#F59E0B' : '#22C55E',
+                    },
+                  ]}
+                />
+              </View>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 }}>
+                <Text style={styles.countdownLabel}>交易截止倒计时</Text>
+                <Text style={[styles.countdownText, { fontSize: 12 }, timeLeft <= 30 && styles.countdownTextUrgent]}>
+                  {timeLeft <= 30 ? '即将截止!' : `剩余 ${formatTime(timeLeft)}`}
+                </Text>
+              </View>
+            </View>
+          )}
+
           {/* Real-time Price Card */}
           <View style={styles.priceCard}>
             <View style={styles.priceCardHeader}>
@@ -577,19 +739,58 @@ export default function PredictScreen() {
                   </TouchableOpacity>
                 ))}
               </View>
+
+              {/* Expected Profit Preview */}
+              {(() => {
+                const ep = getExpectedProfit();
+                if (!ep) return null;
+                return (
+                  <View style={styles.profitPreview}>
+                    <View style={styles.profitPreviewHeader}>
+                      <FontAwesome6 name="calculator" size={14} color="#F59E0B" />
+                      <Text style={styles.profitPreviewTitle}>预期收益</Text>
+                    </View>
+                    <View style={styles.profitPreviewGrid}>
+                      <View style={styles.profitPreviewItem}>
+                        <Text style={styles.profitPreviewLabel}>手续费 (3%)</Text>
+                        <Text style={styles.profitPreviewValue}>${ep.fee}</Text>
+                      </View>
+                      <View style={styles.profitPreviewItem}>
+                        <Text style={styles.profitPreviewLabel}>预估收益</Text>
+                        <Text style={[styles.profitPreviewValue, { color: parseFloat(ep.profit) >= 0 ? '#22C55E' : '#EF4444' }]}>
+                          {parseFloat(ep.profit) >= 0 ? '+' : ''}${ep.profit}
+                        </Text>
+                      </View>
+                      <View style={styles.profitPreviewItem}>
+                        <Text style={styles.profitPreviewLabel}>收益率</Text>
+                        <Text style={[styles.profitPreviewValue, { color: '#F59E0B' }]}>
+                          {ep.profitRate}%
+                        </Text>
+                      </View>
+                      <View style={styles.profitPreviewItem}>
+                        <Text style={styles.profitPreviewLabel}>预估到手</Text>
+                        <Text style={[styles.profitPreviewValue, { color: '#22C55E' }]}>
+                          ${ep.estimatedPayout}
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                );
+              })()}
+
               <TouchableOpacity
-                style={styles.submitButton}
+                style={[styles.submitButton, timeLeft <= 0 && styles.submitButtonDisabled]}
                 onPress={handleBet}
-                disabled={submitting || !amount || parseFloat(amount) < 1}
+                disabled={submitting || !amount || parseFloat(amount) < 1 || timeLeft <= 0}
               >
                 <LinearGradient
-                  colors={['#F59E0B', '#D97706']}
+                  colors={timeLeft <= 0 ? ['#6B7280', '#4B5563'] : ['#F59E0B', '#D97706']}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
                   style={styles.submitGradient}
                 >
                   <Text style={styles.submitButtonText}>
-                    {submitting ? '提交中...' : `确认${selectedSide === 'up' ? '买涨' : '买跌'} $${amount || '0'}`}
+                    {submitting ? '提交中...' : timeLeft <= 0 ? '本期已截止' : `确认${selectedSide === 'up' ? '买涨' : '买跌'} $${amount || '0'}`}
                   </Text>
                 </LinearGradient>
               </TouchableOpacity>
@@ -643,7 +844,12 @@ export default function PredictScreen() {
                   </View>
                 ) : (
                   myVouchers.map((voucher) => (
-                    <View key={voucher.id} style={styles.voucherCard}>
+                    <TouchableOpacity
+                      key={voucher.id}
+                      style={styles.voucherCard}
+                      onPress={() => fetchBetDetail(voucher.id)}
+                      activeOpacity={0.7}
+                    >
                       <View style={styles.voucherHeader}>
                         <View style={styles.voucherSide}>
                           <FontAwesome6
@@ -668,7 +874,7 @@ export default function PredictScreen() {
                           <Text style={styles.claimedText}>已领取 +${voucher.payout}</Text>
                         )}
                       </View>
-                    </View>
+                    </TouchableOpacity>
                   ))
                 )}
               </View>
@@ -745,6 +951,107 @@ export default function PredictScreen() {
           </View>
         </ScrollView>
       </View>
+
+      {/* Bet Detail Modal */}
+      <Modal visible={!!betDetail} animationType="slide" transparent>
+        <TouchableWithoutFeedback onPress={() => setBetDetail(null)} disabled={Platform.OS === 'web'}>
+          <View style={styles.modalOverlay}>
+            <TouchableWithoutFeedback disabled>
+              <View style={styles.betDetailModal}>
+                <View style={styles.betDetailHeader}>
+                  <Text style={styles.betDetailTitle}>交易凭证</Text>
+                  <TouchableOpacity onPress={() => setBetDetail(null)}>
+                    <FontAwesome6 name="xmark" size={20} color={COLORS.textSecondary} />
+                  </TouchableOpacity>
+                </View>
+                {betDetail && (
+                  <View style={styles.betDetailBody}>
+                    <View style={styles.betDetailRow}>
+                      <Text style={styles.betDetailLabel}>凭证编号</Text>
+                      <Text style={styles.betDetailValue}>#{betDetail.id}</Text>
+                    </View>
+                    <View style={styles.betDetailRow}>
+                      <Text style={styles.betDetailLabel}>预测方向</Text>
+                      <Text style={[styles.betDetailValue, { color: betDetail.betSide === 'up' ? '#22C55E' : '#EF4444' }]}>
+                        {betDetail.betSide === 'up' ? '↑ 买涨' : '↓ 买跌'}
+                      </Text>
+                    </View>
+                    <View style={styles.betDetailRow}>
+                      <Text style={styles.betDetailLabel}>下注金额</Text>
+                      <Text style={styles.betDetailValue}>${betDetail.betAmount}</Text>
+                    </View>
+                    <View style={styles.betDetailRow}>
+                      <Text style={styles.betDetailLabel}>手续费 (3%)</Text>
+                      <Text style={styles.betDetailValue}>${betDetail.feeAmount || '0'}</Text>
+                    </View>
+                    <View style={styles.betDetailRow}>
+                      <Text style={styles.betDetailLabel}>实际入池</Text>
+                      <Text style={styles.betDetailValue}>${betDetail.actualAmount || '0'}</Text>
+                    </View>
+                    <View style={styles.betDetailRow}>
+                      <Text style={styles.betDetailLabel}>入场价格</Text>
+                      <Text style={styles.betDetailValue}>${betDetail.basePrice || '-'}</Text>
+                    </View>
+                    <View style={styles.betDetailRow}>
+                      <Text style={styles.betDetailLabel}>期数</Text>
+                      <Text style={styles.betDetailValue}>第 {String(betDetail.roundId).padStart(3, '0')} 期</Text>
+                    </View>
+                    {betDetail.expectedProfit && (
+                      <View style={styles.betDetailRow}>
+                        <Text style={styles.betDetailLabel}>预期收益</Text>
+                        <Text style={[styles.betDetailValue, { color: '#F59E0B' }]}>
+                          {parseFloat(betDetail.expectedProfit) >= 0 ? '+' : ''}${betDetail.expectedProfit}
+                        </Text>
+                      </View>
+                    )}
+                    {betDetail.expectedPayout && (
+                      <View style={styles.betDetailRow}>
+                        <Text style={styles.betDetailLabel}>预估到手</Text>
+                        <Text style={[styles.betDetailValue, { color: '#22C55E' }]}>${betDetail.expectedPayout}</Text>
+                      </View>
+                    )}
+                    {betDetail.endPrice && (
+                      <View style={styles.betDetailRow}>
+                        <Text style={styles.betDetailLabel}>结算价格</Text>
+                        <Text style={styles.betDetailValue}>${betDetail.endPrice}</Text>
+                      </View>
+                    )}
+                    {betDetail.won !== null && (
+                      <View style={styles.betDetailRow}>
+                        <Text style={styles.betDetailLabel}>结果</Text>
+                        <Text style={[styles.betDetailValue, { color: betDetail.won ? '#22C55E' : '#EF4444' }]}>
+                          {betDetail.won ? '✓ 预测正确' : '✗ 预测错误'}
+                        </Text>
+                      </View>
+                    )}
+                    {betDetail.won && betDetail.payout && (
+                      <View style={styles.betDetailRow}>
+                        <Text style={styles.betDetailLabel}>获得</Text>
+                        <Text style={[styles.betDetailValue, { color: '#22C55E' }]}>${betDetail.payout}</Text>
+                      </View>
+                    )}
+                    {betDetail.won && !betDetail.claimed && (
+                      <TouchableOpacity style={styles.claimButton} onPress={() => handleClaim(betDetail.roundId)}>
+                        <Text style={styles.claimButtonText}>领取奖励</Text>
+                      </TouchableOpacity>
+                    )}
+                    {betDetail.claimed && (
+                      <View style={styles.betDetailRow}>
+                        <Text style={styles.betDetailLabel}>领取状态</Text>
+                        <Text style={[styles.betDetailValue, { color: '#22C55E' }]}>已领取</Text>
+                      </View>
+                    )}
+                    <View style={styles.betDetailRow}>
+                      <Text style={styles.betDetailLabel}>下注时间</Text>
+                      <Text style={styles.betDetailValue}>{formatDateTime(betDetail.createdAt)}</Text>
+                    </View>
+                  </View>
+                )}
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
     </Screen>
   );
 }
@@ -1253,5 +1560,156 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#6B7280',
     marginTop: 12,
+  },
+  // Round Info Bar
+  roundInfoBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: 'rgba(245, 158, 11, 0.1)',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
+    marginBottom: 16,
+  },
+  roundInfoLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  roundNumber: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#F59E0B',
+  },
+  roundStatusText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#22C55E',
+  },
+  roundStatusClosed: {
+    color: '#EF4444',
+  },
+  roundStatusResolving: {
+    color: '#F59E0B',
+  },
+  roundStatusCompleted: {
+    color: '#6B7280',
+  },
+  countdownTimer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  countdownText: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#F59E0B',
+    fontVariant: ['tabular-nums'],
+  },
+  countdownTextUrgent: {
+    color: '#EF4444',
+  },
+  countdownLabel: {
+    fontSize: 11,
+    color: COLORS.textSecondary,
+  },
+  countdownBar: {
+    height: 3,
+    backgroundColor: COLORS.border,
+    borderRadius: 2,
+    marginTop: 8,
+    overflow: 'hidden',
+  },
+  countdownFill: {
+    height: '100%',
+    borderRadius: 2,
+  },
+  // Profit Preview
+  profitPreview: {
+    backgroundColor: 'rgba(245, 158, 11, 0.05)',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.2)',
+  },
+  profitPreviewHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 8,
+  },
+  profitPreviewTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#F59E0B',
+  },
+  profitPreviewGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  profitPreviewItem: {
+    flex: 1,
+    minWidth: '45%',
+  },
+  profitPreviewLabel: {
+    fontSize: 11,
+    color: COLORS.textSecondary,
+    marginBottom: 2,
+  },
+  profitPreviewValue: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.textPrimary,
+  },
+  // Submit button disabled
+  submitButtonDisabled: {
+    opacity: 0.6,
+  },
+  // Bet Detail Modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  betDetailModal: {
+    backgroundColor: COLORS.surface,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 20,
+    maxHeight: '80%',
+  },
+  betDetailHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  betDetailTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: COLORS.textPrimary,
+  },
+  betDetailBody: {
+    gap: 12,
+  },
+  betDetailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  betDetailLabel: {
+    fontSize: 14,
+    color: COLORS.textSecondary,
+  },
+  betDetailValue: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.textPrimary,
   },
 });
