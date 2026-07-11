@@ -418,12 +418,12 @@ export default function NodeScreen() {
               <>
                 <View style={styles.acquireDescRow}>
                   <FontAwesome6 name="droplet" size={14} color={COLORS.success} />
-                  <Text style={styles.acquireDesc}>添加 50,000 TFT + 等值USDT 获得 1 个节点</Text>
+                  <Text style={styles.acquireDesc}>添加 50,000 TFT + 等值USDT 流动性</Text>
                 </View>
                 <View style={styles.ruleBox}>
                   <FontAwesome6 name="circle-info" size={12} color={COLORS.primary} />
                   <Text style={styles.ruleText}>
-                    添加50000 TFT及对应等值USDT的流动性，获得1个节点。流动性凭证会锁仓，分50期解锁，每30天解锁2%。同一账户只能参与一次。
+                    添加流动性获得节点。LP凭证锁仓50期（每期30天，解锁2%）。锁仓期间可持续获得节点收益。
                   </Text>
                 </View>
                 {/* TFT Price Display */}
@@ -518,8 +518,8 @@ export default function NodeScreen() {
           </View>
         </View>
 
-        {/* LP Management */}
-        {data && (
+        {/* LP Management - Only show if user has added LP */}
+        {data && data.hasAddedLP && (
           <View style={styles.lpSection}>
             <View style={styles.sectionHeader}>
               <View style={styles.sectionIconBox}>

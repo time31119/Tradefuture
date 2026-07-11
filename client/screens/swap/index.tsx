@@ -47,8 +47,6 @@ export default function SwapScreen() {
   const [inputAmount, setInputAmount] = useState('');
   const [swapping, setSwapping] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [addTft, setAddTft] = useState('');
-  const [removeLp, setRemoveLp] = useState('');
 
   const fetchBalances = useCallback(async () => {
     try {
@@ -147,62 +145,6 @@ export default function SwapScreen() {
     }
   };
 
-  const handleAddLiquidity = async () => {
-    if (!isConnected) {
-      connect();
-      return;
-    }
-    if (!addTft) return;
-    try {
-      /**
-       * 服务端文件：server/src/index.ts
-       * 接口：POST /api/v1/swap/add-liquidity
-       * Body 参数：tftAmount: string, usdtAmount: string
-       */
-      const res = await fetch(`${EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/swap/add-liquidity`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tftAmount: addTft, usdtAmount: (parseFloat(addTft) * 0.5).toString() }),
-      });
-      const result = await res.json();
-      if (result.success) {
-        Alert.alert('成功', `已添加流动性: ${result.data.lpReceived.toFixed(2)} LP`);
-        setAddTft('');
-        fetchBalances();
-      }
-    } catch (error) {
-      console.error('Add liquidity error:', error);
-    }
-  };
-
-  const handleRemoveLiquidity = async () => {
-    if (!isConnected) {
-      connect();
-      return;
-    }
-    if (!removeLp) return;
-    try {
-      /**
-       * 服务端文件：server/src/index.ts
-       * 接口：POST /api/v1/swap/remove-liquidity
-       * Body 参数：lpAmount: string
-       */
-      const res = await fetch(`${EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/swap/remove-liquidity`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ lpAmount: removeLp }),
-      });
-      const result = await res.json();
-      if (result.success) {
-        Alert.alert('成功', `已移除流动性: ${result.data.tftReturned.toFixed(2)} TFT + ${result.data.usdtReturned.toFixed(2)} USDT`);
-        setRemoveLp('');
-        fetchBalances();
-      }
-    } catch (error) {
-      console.error('Remove liquidity error:', error);
-    }
-  };
-
   if (loading) {
     return (
       <Screen backgroundColor={COLORS.background} statusBarStyle="light">
@@ -250,17 +192,6 @@ export default function SwapScreen() {
               <Text style={styles.balanceLabel}>USDT</Text>
               <Text style={styles.balanceValue}>{balances?.usdtBalance.toLocaleString() || '0'}</Text>
               <Text style={styles.balanceUsd}>BEP-20</Text>
-            </View>
-            <View style={styles.balanceDivider} />
-            <View style={styles.balanceItem}>
-              <View style={styles.balanceIconWrap}>
-                <Text style={styles.balanceIcon}>🏦</Text>
-              </View>
-              <Text style={styles.balanceLabel}>LP</Text>
-              <Text style={styles.balanceValue}>{balances?.lpBalance.toLocaleString() || '0'}</Text>
-              <Text style={styles.balanceUsd}>
-                占比 {balances ? `${((balances.lpBalance / balances.totalLP) * 100).toFixed(2)}%` : '0%'}
-              </Text>
             </View>
           </View>
         </View>
@@ -343,86 +274,6 @@ export default function SwapScreen() {
               )}
             </LinearGradient>
           </TouchableOpacity>
-        </View>
-
-        {/* Liquidity Management */}
-        <View style={styles.liquiditySection}>
-          <Text style={styles.sectionTitle}>流动性管理</Text>
-
-          {/* Add Liquidity */}
-          <View style={styles.liquidityCard}>
-            <Text style={styles.liquidityTitle}>
-              <FontAwesome6 name="circle-plus" size={14} color={COLORS.success} /> 添加流动性
-            </Text>
-            <View style={styles.liquidityInputs}>
-              <View style={styles.liquidityInputRow}>
-                <TextInput
-                  style={styles.liquidityInput}
-                  value={addTft}
-                  onChangeText={setAddTft}
-                  placeholder="TFT数量"
-                  placeholderTextColor={COLORS.textSecondary}
-                  keyboardType="decimal-pad"
-                />
-                <Text style={styles.liquiditySuffix}>TFT</Text>
-              </View>
-              <View style={styles.liquidityInputRow}>
-                <TextInput
-                  style={styles.liquidityInput}
-                  value={addTft ? (parseFloat(addTft) * 0.5).toFixed(2) : ''}
-                  editable={false}
-                  placeholder="自动计算"
-                  placeholderTextColor={COLORS.textSecondary}
-                />
-                <Text style={styles.liquiditySuffix}>USDT</Text>
-              </View>
-            </View>
-            <Text style={styles.poolRatio}>
-              池子比例: 1 TFT = {balances?.tftPrice?.toFixed(2) || '0.50'} USDT
-            </Text>
-            <TouchableOpacity
-              style={styles.liquidityBtn}
-              onPress={handleAddLiquidity}
-            >
-              <Text style={[styles.liquidityBtnText, { color: !isConnected ? COLORS.textSecondary : COLORS.success }]}>
-                {!isConnected ? '请先连接钱包' : '添加流动性'}
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Remove Liquidity */}
-          <View style={styles.liquidityCard}>
-            <Text style={styles.liquidityTitle}>
-              <FontAwesome6 name="arrow-up-from-bracket" size={14} color={COLORS.danger} /> 移除流动性
-            </Text>
-            <View style={styles.liquidityInputRow}>
-              <TextInput
-                style={styles.liquidityInput}
-                value={removeLp}
-                onChangeText={setRemoveLp}
-                placeholder="LP数量"
-                placeholderTextColor={COLORS.textSecondary}
-                keyboardType="decimal-pad"
-              />
-              <TouchableOpacity onPress={() => setRemoveLp(balances?.lpBalance.toString() || '0')}>
-                <Text style={styles.maxLpText}>最大</Text>
-              </TouchableOpacity>
-            </View>
-            {removeLp && (
-              <Text style={styles.removeEstimate}>
-                预计赎回: {(parseFloat(removeLp) * 0.5).toFixed(2)} TFT + {(parseFloat(removeLp) * 0.25).toFixed(2)} USDT
-              </Text>
-            )}
-            <TouchableOpacity
-              style={[styles.liquidityBtn, !removeLp && styles.liquidityBtnDisabled]}
-              onPress={handleRemoveLiquidity}
-              disabled={!removeLp && isConnected}
-            >
-              <Text style={[styles.liquidityBtnText, { color: !isConnected ? COLORS.textSecondary : COLORS.danger }]}>
-                {!isConnected ? '请先连接钱包' : '移除流动性'}
-              </Text>
-            </TouchableOpacity>
-          </View>
         </View>
       </ScrollView>
     </Screen>
