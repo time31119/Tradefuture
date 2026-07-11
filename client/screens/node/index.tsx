@@ -453,20 +453,45 @@ export default function NodeScreen() {
                   />
                   <Text style={styles.inputSuffix}>TFT</Text>
                 </View>
-                {/* Auto Swap Breakdown */}
+                {/* Auto Swap Breakdown - Transaction Summary */}
                 {parseFloat(tftAmount) >= 100000 && (
-                  <View style={styles.lpDetailsBox}>
-                    <View style={styles.lpDetailRow}>
-                      <Text style={styles.lpDetailLabel}>TFT数量</Text>
-                      <Text style={styles.lpDetailValue}>{Math.floor(parseFloat(tftAmount) / 2).toLocaleString()} TFT</Text>
+                  <View style={styles.txSummaryBox}>
+                    <View style={styles.txSummaryHeader}>
+                      <FontAwesome6 name="arrow-right-arrow-left" size={12} color={COLORS.primary} />
+                      <Text style={styles.txSummaryTitle}>交易明细</Text>
                     </View>
-                    <View style={styles.lpDetailRow}>
-                      <Text style={styles.lpDetailLabel}>USDT等值</Text>
-                      <Text style={[styles.lpDetailValue, styles.lpDetailHighlight]}>+ {(parseFloat(tftAmount) / 2 * (data?.tftPrice || 0.01)).toFixed(2)} USDT</Text>
+                    <View style={styles.txSummaryContent}>
+                      <View style={styles.txStep}>
+                        <View style={styles.txStepIcon}>
+                          <Text style={styles.txStepNum}>1</Text>
+                        </View>
+                        <View style={styles.txStepContent}>
+                          <Text style={styles.txStepLabel}>兑换USDT</Text>
+                          <Text style={styles.txStepValue}>{Math.floor(parseFloat(tftAmount) / 2).toLocaleString()} TFT → {(parseFloat(tftAmount) / 2 * (data?.tftPrice || 0.01)).toFixed(2)} USDT</Text>
+                        </View>
+                      </View>
+                      <View style={styles.txStep}>
+                        <View style={styles.txStepIcon}>
+                          <Text style={styles.txStepNum}>2</Text>
+                        </View>
+                        <View style={styles.txStepContent}>
+                          <Text style={styles.txStepLabel}>添加流动性</Text>
+                          <Text style={styles.txStepValue}>{Math.floor(parseFloat(tftAmount) / 2).toLocaleString()} TFT + {(parseFloat(tftAmount) / 2 * (data?.tftPrice || 0.01)).toFixed(2)} USDT</Text>
+                        </View>
+                      </View>
+                      <View style={styles.txStep}>
+                        <View style={[styles.txStepIcon, styles.txStepIconSuccess]}>
+                          <FontAwesome6 name="check" size={10} color={COLORS.success} />
+                        </View>
+                        <View style={styles.txStepContent}>
+                          <Text style={styles.txStepLabel}>获得节点</Text>
+                          <Text style={[styles.txStepValue, styles.txStepValueSuccess]}>{Math.floor((parseFloat(tftAmount) || 0) / 100000)} 个</Text>
+                        </View>
+                      </View>
                     </View>
-                    <View style={[styles.lpDetailRow, styles.lpDetailDivider]}>
-                      <Text style={styles.lpDetailLabel}>获得节点</Text>
-                      <Text style={[styles.lpDetailValue, styles.lpDetailHighlight]}>{Math.floor((parseFloat(tftAmount) || 0) / 100000)} 个</Text>
+                    <View style={styles.txSummaryFooter}>
+                      <Text style={styles.txFooterLabel}>当前TFT价格</Text>
+                      <Text style={styles.txFooterValue}>${(data?.tftPrice || 0.01).toFixed(4)}</Text>
                     </View>
                   </View>
                 )}
@@ -1011,6 +1036,85 @@ const styles = StyleSheet.create({
   lpDetailValue: { fontSize: 12, color: COLORS.textPrimary, fontWeight: '500' },
   lpDetailDivider: { borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.1)', paddingTop: 6, marginTop: 2 },
   lpDetailHighlight: { fontSize: 16, fontWeight: '700', color: COLORS.primary },
+  // Transaction Summary Box
+  txSummaryBox: {
+    backgroundColor: 'rgba(240, 185, 11, 0.05)',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(240, 185, 11, 0.2)',
+  },
+  txSummaryHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    gap: 6,
+  },
+  txSummaryTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: COLORS.primary,
+  },
+  txSummaryContent: {
+    gap: 10,
+  },
+  txStep: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  txStepIcon: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: 'rgba(240, 185, 11, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  txStepIconSuccess: {
+    backgroundColor: 'rgba(0, 200, 83, 0.15)',
+  },
+  txStepNum: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: COLORS.primary,
+  },
+  txStepContent: {
+    flex: 1,
+  },
+  txStepLabel: {
+    fontSize: 11,
+    color: COLORS.textSecondary,
+    marginBottom: 2,
+  },
+  txStepValue: {
+    fontSize: 13,
+    color: COLORS.textPrimary,
+    fontWeight: '500',
+  },
+  txStepValueSuccess: {
+    color: COLORS.success,
+    fontWeight: '700',
+  },
+  txSummaryFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 12,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(240, 185, 11, 0.15)',
+  },
+  txFooterLabel: {
+    fontSize: 11,
+    color: COLORS.textSecondary,
+  },
+  txFooterValue: {
+    fontSize: 13,
+    color: COLORS.primary,
+    fontWeight: '600',
+  },
   // LP Confirm Modal
   lpConfirmBox: {
     backgroundColor: COLORS.surface,
