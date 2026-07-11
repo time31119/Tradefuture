@@ -229,7 +229,7 @@ export default function NodeScreen() {
   };
 
   const burnNodePrice = data?.burnNodePrice || 100000;
-  const lpNodePrice = data?.lpNodePrice || 50000;
+  const lpNodePrice = data?.lpNodePrice || 100000;
   const estimatedNodes = acquireMethod === 'burn' 
     ? Math.floor((parseFloat(tftAmount) || 0) / burnNodePrice)
     : Math.floor((parseFloat(tftAmount) || 0) / lpNodePrice);
@@ -418,12 +418,12 @@ export default function NodeScreen() {
               <>
                 <View style={styles.acquireDescRow}>
                   <FontAwesome6 name="droplet" size={14} color={COLORS.success} />
-                  <Text style={styles.acquireDesc}>添加 50,000 TFT + 等值USDT 流动性</Text>
+                  <Text style={styles.acquireDesc}>输入 TFT，自动兑换 USDT 添加流动性</Text>
                 </View>
                 <View style={styles.ruleBox}>
                   <FontAwesome6 name="circle-info" size={12} color={COLORS.primary} />
                   <Text style={styles.ruleText}>
-                    添加流动性获得节点。LP凭证锁仓50期（每期30天，解锁2%）。锁仓期间可持续获得节点收益。
+                    系统自动将一半 TFT 兑换为 USDT，与另一半 TFT 一起添加流动性。LP凭证锁仓50期（每期30天，解锁2%）。
                   </Text>
                 </View>
                 {/* TFT Price Display */}
@@ -433,9 +433,9 @@ export default function NodeScreen() {
                     <Text style={styles.lpPriceValue}>1 TFT ≈ {(data?.tftPrice || 0.001).toFixed(4)} USDT</Text>
                   </View>
                   <View style={styles.lpPriceRow}>
-                    <Text style={styles.lpPriceLabel}>示例</Text>
+                    <Text style={styles.lpPriceLabel}>流程</Text>
                     <Text style={styles.lpPriceExample}>
-                      50,000 TFT + {Math.round(50000 * (data?.tftPrice || 0.001))} USDT = 1 节点
+                      100K TFT → 50K兑换USDT + 50K添加LP = 1 节点
                     </Text>
                   </View>
                 </View>
@@ -444,33 +444,30 @@ export default function NodeScreen() {
                     style={styles.acquireInput}
                     value={tftAmount}
                     onChangeText={setTftAmount}
-                    placeholder="50000"
+                    placeholder="100000"
                     placeholderTextColor={COLORS.textSecondary}
                     keyboardType="numeric"
                   />
                   <Text style={styles.inputSuffix}>TFT</Text>
                 </View>
-                {/* USDT Equivalent Display */}
-                <View style={styles.lpEquivalent}>
-                  <FontAwesome6 name="plus" size={10} color={COLORS.success} />
-                  <Text style={styles.lpEquivText}>
-                    + {Math.floor((parseFloat(tftAmount) || 0) * (data?.tftPrice || 1)).toLocaleString()} USDT (TFT等值)
-                  </Text>
-                </View>
-                {/* LP Details */}
-                {parseFloat(tftAmount) >= 50000 && (
+                {/* Auto Swap Breakdown */}
+                {parseFloat(tftAmount) >= 100000 && (
                   <View style={styles.lpDetailsBox}>
                     <View style={styles.lpDetailRow}>
-                      <Text style={styles.lpDetailLabel}>TFT数量</Text>
+                      <Text style={styles.lpDetailLabel}>输入TFT</Text>
                       <Text style={styles.lpDetailValue}>{parseFloat(tftAmount).toLocaleString()} TFT</Text>
                     </View>
-                    <View style={styles.lpDetailRow}>
-                      <Text style={styles.lpDetailLabel}>USDT等值</Text>
-                      <Text style={styles.lpDetailValue}>{Math.round((parseFloat(tftAmount) || 0) * (data?.tftPrice || 0.001)).toLocaleString()} USDT</Text>
+                    <View style={[styles.lpDetailRow, styles.lpDetailDivider]}>
+                      <Text style={styles.lpDetailLabel}>→ 兑换USDT</Text>
+                      <Text style={styles.lpDetailValue}>{Math.floor(parseFloat(tftAmount) / 2).toLocaleString()} TFT → {Math.floor(parseFloat(tftAmount) / 2 * (data?.tftPrice || 0.001)).toLocaleString()} USDT</Text>
                     </View>
                     <View style={styles.lpDetailRow}>
+                      <Text style={styles.lpDetailLabel}>→ 添加LP</Text>
+                      <Text style={styles.lpDetailValue}>{Math.ceil(parseFloat(tftAmount) / 2).toLocaleString()} TFT + {Math.floor(parseFloat(tftAmount) / 2 * (data?.tftPrice || 0.001)).toLocaleString()} USDT</Text>
+                    </View>
+                    <View style={[styles.lpDetailRow, styles.lpDetailDivider]}>
                       <Text style={styles.lpDetailLabel}>获得节点</Text>
-                      <Text style={[styles.lpDetailValue, styles.lpDetailHighlight]}>{Math.floor((parseFloat(tftAmount) || 0) / 50000)} 个</Text>
+                      <Text style={[styles.lpDetailValue, styles.lpDetailHighlight]}>{Math.floor((parseFloat(tftAmount) || 0) / 100000)} 个</Text>
                     </View>
                     <View style={styles.lpDetailRow}>
                       <Text style={styles.lpDetailLabel}>锁仓期限</Text>
@@ -483,7 +480,7 @@ export default function NodeScreen() {
                   </View>
                 )}
                 <View style={styles.quickAmounts}>
-                  {[50000, 100000, 250000, 500000].map((amount) => (
+                  {[100000, 200000, 500000, 1000000].map((amount) => (
                     <TouchableOpacity
                       key={amount}
                       style={styles.quickAmountBtn}
@@ -1021,6 +1018,7 @@ const styles = StyleSheet.create({
   lpDetailRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
   lpDetailLabel: { fontSize: 12, color: COLORS.textSecondary },
   lpDetailValue: { fontSize: 12, color: COLORS.textPrimary, fontWeight: '500' },
+  lpDetailDivider: { borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.1)', paddingTop: 6, marginTop: 2 },
   lpDetailHighlight: { fontSize: 16, fontWeight: '700', color: COLORS.primary },
   // LP Confirm Modal
   lpConfirmBox: {

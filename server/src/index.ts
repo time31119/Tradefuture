@@ -378,7 +378,7 @@ app.get('/api/v1/node/overview', (req, res) => {
       nextUnlockDays: 3,
       // 节点获取规则
       burnNodePrice: 100000, // 销毁100000 TFT获得1个节点
-      lpNodePrice: 50000, // 添加50000 TFT + 等值USDT获得1个节点
+      lpNodePrice: 100000, // 添加100000 TFT（自动兑换一半为USDT）获得1个节点
       tftPrice: 0.01, // 当前TFT价格 (USDT)
       lpUnlockPeriods: 50, // LP分50期解锁
       lpUnlockInterval: 30, // 每30天解锁一次
@@ -410,7 +410,7 @@ app.post('/api/v1/node/claim', (req, res) => {
 });
 
 // POST /api/v1/node/acquire - Acquire node
-app.post('/api/v1/node/acquire', (req, res) => {
+app.post('/api/v1/node/acquire', async (req, res) => {
   const { method, tftAmount } = req.body;
 
   if (!method || !tftAmount) {
@@ -419,7 +419,6 @@ app.post('/api/v1/node/acquire', (req, res) => {
 
   // 节点获取规则
   const BURN_NODE_PRICE = 100000; // 销毁100000 TFT获得1个节点
-  const LP_NODE_PRICE = 50000; // 添加50000 TFT + 50000 USDT等值LP获得1个节点
 
   if (method === 'burn') {
     // 销毁TFT获取节点
@@ -442,29 +441,49 @@ app.post('/api/v1/node/acquire', (req, res) => {
       },
     });
   } else if (method === 'lp') {
-    // 添加LP获取节点：50000 TFT + 等值USDT
-    if (tftAmount < LP_NODE_PRICE) {
+    // 添加LP获取节点：用户只需提供TFT，系统自动兑换一半为USDT
+    // 流程：输入100K TFT → 50K兑换USDT → 50K TFT + USDT添加LP
+    const LP_NODE_TFT_TOTAL = 100000; // 总共需要100K TFT（一半兑换USDT，一半添加LP）
+    
+    if (tftAmount < LP_NODE_TFT_TOTAL) {
       return res.status(400).json({ 
         success: false, 
-        error: `添加数量不足，至少需要 ${LP_NODE_PRICE} TFT + 等值USDT` 
+        error: `TFT数量不足，至少需要 ${LP_NODE_TFT_TOTAL} TFT（自动兑换一半为USDT）` 
       });
     }
-    const nodesAcquired = Math.floor(tftAmount / LP_NODE_PRICE);
-    // TFT价格 (USDT)
-    const tftPrice = 0.01;
-    const usdtEquivalent = tftAmount * tftPrice;
+    
+    // 获取实时TFT价格
+    const btcPrice = await fetchRealBTCPrice();
+    const tftPrice = btcPrice / 6500000; // BTC $65000 = TFT $0.01
+    
+    // 计算兑换逻辑
+    const halfTft = Math.floor(tftAmount / 2); // 一半用于兑换USDT
+    const lpTftAmount = tftAmount - halfTft; // 另一半用于添加LP
+    const usdtFromSwap = halfTft * tftPrice; // 兑换得到的USDT
+    
+    const nodesAcquired = Math.floor(tftAmount / LP_NODE_TFT_TOTAL);
+    
     res.json({
       success: true,
       data: {
         nodesAcquired,
         method: 'lp',
+        // 输入
         tftAmount,
-        usdtEquivalent, // 等值USDT = TFT数量 * TFT价格
-        lpLocked: tftAmount * 2, // LP总量 = TFT + USDT
+        // 自动兑换明细
+        swapTftAmount: halfTft, // 用于兑换的TFT
+        usdtFromSwap: parseFloat(usdtFromSwap.toFixed(2)), // 兑换得到的USDT
+        tftPrice: parseFloat(tftPrice.toFixed(6)), // TFT当前价格
+        // LP添加明细
+        lpTftAmount, // 添加LP的TFT
+        lpUsdtAmount: parseFloat(usdtFromSwap.toFixed(2)), // 添加LP的USDT
+        lpTotal: parseFloat((lpTftAmount + usdtFromSwap).toFixed(2)), // LP总价值
+        // 锁仓信息
+        lpLocked: lpTftAmount, // 锁仓的LP数量（以TFT计）
         unlockPeriods: 50,
         unlockInterval: 30, // 天
         unlockPercentPerPeriod: 2,
-        message: 'LP已锁仓，分50期解锁，每30天解锁2%',
+        message: `${halfTft} TFT 已兑换为 ${usdtFromSwap.toFixed(2)} USDT，与剩余 ${lpTftAmount} TFT 一起添加LP`,
         txHash: '0x' + Array(64).fill(0).map(() => Math.floor(Math.random() * 16).toString(16)).join(''),
       },
     });
