@@ -18,6 +18,7 @@ import { FontAwesome6 } from '@expo/vector-icons';
 import { Screen } from '@/components/Screen';
 import { useWallet } from '@/contexts/WalletContext';
 import { useFocusEffect } from 'expo-router';
+import { CONTRACT_ADDRESSES } from '@/utils/web3Config';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
 import { COLORS } from '@/utils/theme';
 import QRCode from 'react-native-qrcode-svg';
@@ -1225,13 +1226,51 @@ export default function ProfileScreen() {
                   </View>
                   <Text style={styles.settingsItemValue}>v1.0.0</Text>
                 </View>
-                <View style={styles.settingsItem}>
+                <TouchableOpacity
+                  style={styles.settingsItem}
+                  onPress={() => Linking.openURL(`https://bscscan.com/address/${CONTRACT_ADDRESSES.PREDICTION_MARKET}`)}
+                >
                   <View style={styles.settingsItemLeft}>
                     <FontAwesome6 name="file-contract" size={18} color={COLORS.primary} />
-                    <Text style={styles.settingsItemText}>合约地址</Text>
+                    <Text style={styles.settingsItemText}>预测市场合约</Text>
                   </View>
-                  <Text style={styles.settingsItemValue} numberOfLines={1} ellipsizeMode="middle">待部署</Text>
-                </View>
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <Text style={[styles.settingsItemValue, { fontSize: 10 }]} numberOfLines={1} ellipsizeMode="middle">
+                      {CONTRACT_ADDRESSES.PREDICTION_MARKET.slice(0, 6)}...{CONTRACT_ADDRESSES.PREDICTION_MARKET.slice(-4)}
+                    </Text>
+                    <FontAwesome6 name="up-right-from-square" size={10} color={COLORS.textSecondary} style={{ marginLeft: 4 }} />
+                  </View>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.settingsItem}
+                  onPress={() => Linking.openURL(`https://bscscan.com/address/${CONTRACT_ADDRESSES.TFT_TOKEN}`)}
+                >
+                  <View style={styles.settingsItemLeft}>
+                    <FontAwesome6 name="coins" size={18} color={COLORS.primary} />
+                    <Text style={styles.settingsItemText}>TFT 代币合约</Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <Text style={[styles.settingsItemValue, { fontSize: 10 }]} numberOfLines={1} ellipsizeMode="middle">
+                      {CONTRACT_ADDRESSES.TFT_TOKEN.slice(0, 6)}...{CONTRACT_ADDRESSES.TFT_TOKEN.slice(-4)}
+                    </Text>
+                    <FontAwesome6 name="up-right-from-square" size={10} color={COLORS.textSecondary} style={{ marginLeft: 4 }} />
+                  </View>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.settingsItem}
+                  onPress={() => Linking.openURL(`https://bscscan.com/address/${CONTRACT_ADDRESSES.NODE_PARTNER}`)}
+                >
+                  <View style={styles.settingsItemLeft}>
+                    <FontAwesome6 name="users" size={18} color={COLORS.primary} />
+                    <Text style={styles.settingsItemText}>节点合伙人合约</Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <Text style={[styles.settingsItemValue, { fontSize: 10 }]} numberOfLines={1} ellipsizeMode="middle">
+                      {CONTRACT_ADDRESSES.NODE_PARTNER.slice(0, 6)}...{CONTRACT_ADDRESSES.NODE_PARTNER.slice(-4)}
+                    </Text>
+                    <FontAwesome6 name="up-right-from-square" size={10} color={COLORS.textSecondary} style={{ marginLeft: 4 }} />
+                  </View>
+                </TouchableOpacity>
               </View>
 
               {isConnected && (
