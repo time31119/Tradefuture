@@ -57,8 +57,8 @@ interface Round {
   insurancePool: string;
   remainingSeconds: number;
   roundNumber: number;
-  expectedProfitUp: { profitRate: string; profitAmount: string; multiplier: string };
-  expectedProfitDown: { profitRate: string; profitAmount: string; multiplier: string };
+  expectedProfitUp: { profitRate: string; profitAmount: string; multiplier: string; willRefund?: boolean; message?: string };
+  expectedProfitDown: { profitRate: string; profitAmount: string; multiplier: string; willRefund?: boolean; message?: string };
   userBet?: {
     side: string;
     amount: string;
@@ -375,10 +375,42 @@ export default function PredictScreen() {
 
     const upAmount = parseFloat(currentRound.upAmount) || 0;
     const downAmount = parseFloat(currentRound.downAmount) || 0;
-    const netAmount = betAmt * 0.97;
     const fee = betAmt * 0.03;
+    const netAmount = betAmt * 0.97;
 
+    // Check if there's no counterparty (opposite side has no bets)
+    const oppositeAmount = selectedSide === 'up' ? downAmount : upAmount;
     const currentSideAmount = selectedSide === 'up' ? upAmount : downAmount;
+    
+    if (oppositeAmount === 0 && currentSideAmount === 0) {
+      // First bet - will be refunded if no counterparty
+      return {
+        fee: fee.toFixed(2),
+        netAmount: netAmount.toFixed(2),
+        estimatedPayout: betAmt.toFixed(2),
+        profit: '0.00',
+        profitRate: '0.00',
+        multiplier: '1.00',
+        willRefund: true,
+        message: '无对手盘，将退回本金',
+      };
+    }
+    
+    if (oppositeAmount === 0) {
+      // Only your side has bets - will be refunded
+      return {
+        fee: fee.toFixed(2),
+        netAmount: netAmount.toFixed(2),
+        estimatedPayout: betAmt.toFixed(2),
+        profit: '0.00',
+        profitRate: '0.00',
+        multiplier: '1.00',
+        willRefund: true,
+        message: '无对手盘，将退回本金',
+      };
+    }
+
+    // Normal pool calculation - both sides have bets
     const newTotalPool = upAmount + downAmount + netAmount;
     const newSideAmount = currentSideAmount + netAmount;
     const winnerPool = newTotalPool * 0.80;
@@ -395,6 +427,8 @@ export default function PredictScreen() {
       profit: profit.toFixed(2),
       profitRate: profitRate.toFixed(2),
       multiplier: multiplier.toFixed(2),
+      willRefund: false,
+      message: null,
     };
   };
 
@@ -744,6 +778,25 @@ export default function PredictScreen() {
               {(() => {
                 const ep = getExpectedProfit();
                 if (!ep) return null;
+                
+                // Show refund message when no counterparty
+                if (ep.willRefund) {
+                  return (
+                    <View style={[styles.profitPreview, { backgroundColor: 'rgba(59, 130, 246, 0.1)', borderColor: '#3B82F6' }]}>
+                      <View style={styles.profitPreviewHeader}>
+                        <FontAwesome6 name="circle-info" size={14} color="#3B82F6" />
+                        <Text style={[styles.profitPreviewTitle, { color: '#3B82F6' }]}>提示</Text>
+                      </View>
+                      <Text style={{ color: '#3B82F6', fontSize: 13, marginTop: 8 }}>
+                        {ep.message}
+                      </Text>
+                      <Text style={{ color: '#9CA3AF', fontSize: 12, marginTop: 4 }}>
+                        等待其他玩家下注后，收益将正常计算
+                      </Text>
+                    </View>
+                  );
+                }
+                
                 return (
                   <View style={styles.profitPreview}>
                     <View style={styles.profitPreviewHeader}>

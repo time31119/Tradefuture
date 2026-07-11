@@ -1423,11 +1423,35 @@ app.get('/api/v1/rounds/current', async (req, res) => {
   const downAmount = parseFloat(current.downAmount);
   const totalPool = upAmount + downAmount;
   const calcExpectedProfit = (betAmount: number, side: string) => {
-    if (totalPool === 0) {
-      // First bet - estimated 97% return (after 3% fee)
-      return { profitRate: '0.00', profitAmount: '0.00', multiplier: '1.00' };
-    }
+    const oppositeSide = side === 'up' ? 'down' : 'up';
+    const oppositeAmount = side === 'up' ? downAmount : upAmount;
     const sideAmount = side === 'up' ? upAmount : downAmount;
+    
+    // Check if there's no counterparty (opposite side has no bets)
+    // In this case, the bet will be refunded (return principal)
+    if (oppositeAmount === 0 && sideAmount === 0) {
+      // First bet - will be refunded if no counterparty
+      return { 
+        profitRate: '0.00', 
+        profitAmount: '0.00', 
+        multiplier: '1.00',
+        willRefund: true,
+        message: '无对手盘，将退回本金'
+      };
+    }
+    
+    if (oppositeAmount === 0) {
+      // Only your side has bets - will be refunded
+      return { 
+        profitRate: '0.00', 
+        profitAmount: '0.00', 
+        multiplier: '1.00',
+        willRefund: true,
+        message: '无对手盘，将退回本金'
+      };
+    }
+    
+    // Normal pool calculation - both sides have bets
     const newSideAmount = sideAmount + betAmount * (1 - FEE_RATE);
     const newTotalPool = totalPool + betAmount * (1 - FEE_RATE);
     const winnerPool = newTotalPool * WINNER_SHARE;
@@ -1440,6 +1464,8 @@ app.get('/api/v1/rounds/current', async (req, res) => {
       profitRate: profitRate.toFixed(2),
       profitAmount: profit.toFixed(2),
       multiplier: multiplier.toFixed(2),
+      willRefund: false,
+      message: null
     };
   };
   // Get all user bets (not just unclaimed)
