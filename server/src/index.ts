@@ -27,8 +27,9 @@ function generateInviteCode(address: string): string {
 // Rate limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 1000, // limit each IP to 1000 requests per windowMs
-  message: { error: 'Too many requests, please try again later' }
+  max: 5000, // limit each IP to 5000 requests per windowMs
+  message: { error: 'Too many requests, please try again later' },
+  skip: (req) => process.env.NODE_ENV === 'development' // skip in development
 });
 
 // Apply rate limiting to all API routes
