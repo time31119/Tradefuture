@@ -249,7 +249,29 @@ export default function ProfileScreen() {
 
   const handleCopyInvite = async () => {
     if (!profile) return;
+    const inviteCode = profile.inviteCode;
+    try {
+      if (Platform.OS === 'web') {
+        await navigator.clipboard.writeText(inviteCode);
+        Alert.alert('复制成功', `邀请码 ${inviteCode} 已复制到剪贴板`);
+      } else {
+        // Mobile: use Share API to share the invite code
+        await Share.share({
+          message: `我的TradeFuture邀请码: ${inviteCode}`,
+          title: 'TradeFuture 邀请码',
+        });
+      }
+    } catch (error) {
+      // Fallback: show the code for manual copy
+      Alert.alert('邀请码', inviteCode);
+    }
+  };
+
+  const handleShareLink = async () => {
+    if (!profile) return;
     const inviteLink = `https://tradefuture.app?ref=${profile.inviteCode}`;
+    const shareMessage = `加入 TradeFuture，一起预测BTC价格赢取奖励！\n\n使用我的邀请码: ${profile.inviteCode}\n${inviteLink}`;
+    
     try {
       if (Platform.OS === 'web') {
         // Web: use clipboard API
@@ -257,10 +279,15 @@ export default function ProfileScreen() {
         Alert.alert('复制成功', `邀请链接已复制到剪贴板\n${inviteLink}`);
       } else {
         // Mobile: use Share API
-        await Share.share({
-          message: `加入 TradeFuture，一起预测BTC价格赢取奖励！\n\n使用我的邀请码: ${profile.inviteCode}\n${inviteLink}`,
+        const result = await Share.share({
+          message: shareMessage,
           title: 'TradeFuture 邀请',
         });
+        if (result.action === Share.sharedAction) {
+          // Share completed
+        } else if (result.action === Share.dismissedAction) {
+          // Share dismissed
+        }
       }
     } catch (error) {
       // Fallback: show the link for manual copy
@@ -672,16 +699,16 @@ export default function ProfileScreen() {
             </View>
           </View>
 
-          {/* Invite Code Display */}
-          <View style={styles.inviteCodeBox}>
+          {/* Invite Code Display - Tap to copy */}
+          <TouchableOpacity style={styles.inviteCodeBox} onPress={handleCopyInvite} activeOpacity={0.7}>
             <View style={styles.inviteCodeLeft}>
-              <Text style={styles.inviteCodeLabel}>我的邀请码</Text>
+              <Text style={styles.inviteCodeLabel}>我的邀请码 (点击复制)</Text>
               <Text style={styles.inviteCodeValue}>{profile?.inviteCode || '--'}</Text>
             </View>
-            <TouchableOpacity style={styles.inviteCopyBtn} onPress={handleCopyInvite}>
+            <View style={styles.inviteCopyBtn}>
               <FontAwesome6 name="copy" size={14} color={COLORS.primary} />
-            </TouchableOpacity>
-          </View>
+            </View>
+          </TouchableOpacity>
 
           {/* Stats Row */}
           <View style={styles.inviteStatsRow}>
@@ -703,7 +730,7 @@ export default function ProfileScreen() {
 
           {/* Action Buttons */}
           <View style={styles.inviteActionRow}>
-            <TouchableOpacity style={styles.inviteShareBtn} onPress={handleCopyInvite}>
+            <TouchableOpacity style={styles.inviteShareBtn} onPress={handleShareLink}>
               <FontAwesome6 name="share-nodes" size={14} color={COLORS.background} />
               <Text style={styles.inviteShareBtnText}>分享链接</Text>
             </TouchableOpacity>
