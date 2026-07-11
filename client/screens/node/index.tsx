@@ -833,19 +833,19 @@ export default function NodeScreen() {
               <View style={styles.lpConfirmBox}>
                 <View style={styles.lpConfirmRow}>
                   <Text style={styles.lpConfirmLabel}>TFT数量</Text>
-                  <Text style={styles.lpConfirmValue}>{parseFloat(tftAmount).toLocaleString()} TFT</Text>
+                  <Text style={styles.lpConfirmValue}>{Math.floor(parseFloat(tftAmount) / 2).toLocaleString()} TFT</Text>
                 </View>
                 <View style={styles.lpConfirmRow}>
                   <Text style={styles.lpConfirmLabel}>USDT等值</Text>
                   <Text style={styles.lpConfirmValue}>
-                    + {Math.floor((parseFloat(tftAmount) || 0) * (data?.tftPrice || 1)).toLocaleString()} USDT
+                    + {(Math.floor(parseFloat(tftAmount) / 2) * (data?.tftPrice || 0.01)).toFixed(2)} USDT
                   </Text>
                 </View>
                 <View style={styles.lpConfirmDivider} />
                 <View style={styles.lpConfirmRow}>
                   <Text style={styles.lpConfirmLabel}>获得节点</Text>
                   <Text style={[styles.lpConfirmValue, { color: COLORS.success }]}>
-                    {Math.floor((parseFloat(tftAmount) || 0) / 50000)} 个
+                    {Math.floor((parseFloat(tftAmount) || 0) / 100000)} 个
                   </Text>
                 </View>
               </View>
