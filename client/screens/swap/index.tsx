@@ -178,7 +178,7 @@ export default function SwapScreen() {
           <View style={styles.balanceRow}>
             <View style={styles.balanceItem}>
               <View style={styles.balanceIconWrap}>
-                <Text style={styles.balanceIcon}>💰</Text>
+                <FontAwesome6 name="coins" size={18} color={COLORS.primary} />
               </View>
               <Text style={styles.balanceLabel}>TFT</Text>
               <Text style={styles.balanceValue}>{balances?.tftBalance.toLocaleString() || '0'}</Text>
@@ -187,7 +187,7 @@ export default function SwapScreen() {
             <View style={styles.balanceDivider} />
             <View style={styles.balanceItem}>
               <View style={styles.balanceIconWrap}>
-                <Text style={styles.balanceIcon}>💵</Text>
+                <FontAwesome6 name="dollar-sign" size={18} color={COLORS.success} />
               </View>
               <Text style={styles.balanceLabel}>USDT</Text>
               <Text style={styles.balanceValue}>{balances?.usdtBalance.toLocaleString() || '0'}</Text>

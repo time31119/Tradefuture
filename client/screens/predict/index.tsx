@@ -14,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { LineChart } from 'react-native-gifted-charts';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Screen } from '@/components/Screen';
 import { COLORS } from '@/utils/theme';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
@@ -21,7 +22,20 @@ import { useFocusEffect } from 'expo-router';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const API_BASE = process.env.EXPO_PUBLIC_BACKEND_BASE_URL || 'http://localhost:9091';
-const DEVICE_ID = 'device_' + Math.random().toString(36).substr(2, 9);
+
+// Generate or retrieve persistent device ID
+const getDeviceId = async (): Promise<string> => {
+  try {
+    let deviceId = await AsyncStorage.getItem('device_id');
+    if (!deviceId) {
+      deviceId = 'device_' + Math.random().toString(36).substr(2, 9);
+      await AsyncStorage.setItem('device_id', deviceId);
+    }
+    return deviceId;
+  } catch {
+    return 'device_fallback';
+  }
+};
 
 interface Round {
   id: number;
@@ -64,13 +78,20 @@ export default function PredictScreen() {
   const [chartInterval, setChartInterval] = useState('5m');
   const [chartHigh, setChartHigh] = useState(0);
   const [chartLow, setChartLow] = useState(0);
+  const [deviceId, setDeviceId] = useState<string>('');
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const priceTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const chartTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // Initialize device ID on mount
+  useEffect(() => {
+    getDeviceId().then(setDeviceId);
+  }, []);
+
   const fetchRounds = async () => {
+    if (!deviceId) return;
     try {
-      const res = await fetch(`${API_BASE}/api/v1/rounds/current?deviceId=${DEVICE_ID}`);
+      const res = await fetch(`${API_BASE}/api/v1/rounds/current?deviceId=${deviceId}`);
       const data = await res.json();
       if (data.current) {
         setCurrentRound(data.current);
@@ -96,8 +117,9 @@ export default function PredictScreen() {
   };
 
   const fetchHistory = async () => {
+    if (!deviceId) return;
     try {
-      const res = await fetch(`${API_BASE}/api/v1/rounds/history?deviceId=${DEVICE_ID}&limit=20`);
+      const res = await fetch(`${API_BASE}/api/v1/rounds/history?deviceId=${deviceId}&limit=20`);
       const data = await res.json();
       if (data.rounds) setMyHistory(data.rounds);
     } catch (error) {
@@ -221,7 +243,7 @@ export default function PredictScreen() {
   };
 
   const handleBet = async () => {
-    if (!selectedSide || !amount || !currentRound) return;
+    if (!selectedSide || !amount || !currentRound || !deviceId) return;
     const betAmount = parseFloat(amount);
     if (betAmount < 1) {
       alert('最小下注金额为 $1');
@@ -236,7 +258,7 @@ export default function PredictScreen() {
         body: JSON.stringify({
           side: selectedSide,
           amount: betAmount.toString(),
-          deviceId: DEVICE_ID,
+          deviceId: deviceId,
         }),
       });
       const data = await res.json();
@@ -257,11 +279,12 @@ export default function PredictScreen() {
   };
 
   const handleClaim = async (roundId: string) => {
+    if (!deviceId) return;
     try {
       const res = await fetch(`${API_BASE}/api/v1/rounds/${roundId}/claim`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ deviceId: DEVICE_ID }),
+        body: JSON.stringify({ deviceId: deviceId }),
       });
       const data = await res.json();
       if (data.success) {
@@ -570,7 +593,7 @@ export default function PredictScreen() {
           <View style={styles.insuranceNotice}>
             <FontAwesome6 name="shield-halved" size={14} color="#F59E0B" />
             <Text style={styles.insuranceText}>
-              预测失败可获保险仓100%等值TFT赔付
+              20%下注额注入保险仓，预测失败可获保险赔付
             </Text>
           </View>
 

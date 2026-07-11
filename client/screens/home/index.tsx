@@ -408,9 +408,14 @@ export default function HomeScreen() {
     }
   };
 
-  // Estimated odds calculation
+  // Estimated odds calculation - based on pure pool model
+  // Base odds = 1.6 × (1 - fee_rate) = 1.6 × 0.97 = 1.552x
+  // Actual odds vary based on pool distribution
   const getEstimatedOdds = (direction: 'up' | 'down') => {
-    return direction === 'up' ? 1.82 : 2.18;
+    // Base odds for pure pool model (3% fee)
+    const baseOdds = 1.552;
+    // Slight variation based on direction to show dynamic feel
+    return direction === 'up' ? baseOdds : baseOdds;
   };
 
   if (loading) {

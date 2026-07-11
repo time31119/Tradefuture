@@ -856,7 +856,7 @@ export default function ProfileScreen() {
                   </View>
                   <View style={styles.tutorialStepContent}>
                     <Text style={styles.tutorialStepTitle}>连接钱包</Text>
-                    <Text style={styles.tutorialStepDesc}>点击"连接钱包"按钮，授权连接你的 BSC 钱包（支持 MetaMask、Trust Wallet 等）。</Text>
+                    <Text style={styles.tutorialStepDesc}>点击「连接钱包」按钮，授权连接你的 BSC 钱包（支持 MetaMask、Trust Wallet 等）。</Text>
                   </View>
                 </View>
                 <View style={styles.tutorialStep}>
@@ -938,7 +938,7 @@ export default function ProfileScreen() {
                 <Text style={styles.settingsSectionTitle}>网络</Text>
                 <View style={styles.settingsItem}>
                   <View style={styles.settingsItemLeft}>
-                    <FontAwesome6 name="chain" size={18} color={COLORS.primary} />
+                    <FontAwesome6 name="link" size={18} color={COLORS.primary} />
                     <Text style={styles.settingsItemText}>当前网络</Text>
                   </View>
                   <Text style={styles.settingsItemValue}>BSC (BEP-20)</Text>
