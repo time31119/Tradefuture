@@ -146,13 +146,13 @@ function SvgChart({ data, isUp }: SvgChartProps) {
   return (
     <Svg width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
       <Defs>
-        <LinearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
-          <Stop offset="0%" stopColor={color} stopOpacity="0.3" />
-          <Stop offset="100%" stopColor={color} stopOpacity="0" />
+        <LinearGradient id="chartGradient" x1={0} y1={0} x2={0} y2={1}>
+          <Stop offset="0%" stopColor={color} stopOpacity={0.3} />
+          <Stop offset="100%" stopColor={color} stopOpacity={0} />
         </LinearGradient>
       </Defs>
       <Path d={areaPath} fill="url(#chartGradient)" />
-      <Path d={linePath} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d={linePath} fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
