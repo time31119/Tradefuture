@@ -168,7 +168,8 @@ const SimpleChart = ({ data, isUp }: SimpleChartProps) => {
   );
 };
 
-// Format time helperfunction SimpleChart({ data, isUp }: SimpleChartProps) {
+// Format time helper
+function SimpleChart({ data, isUp }: SimpleChartProps) {
   const width = SCREEN_WIDTH - 64;
   const height = 180;
   const padding = 10;
