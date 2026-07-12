@@ -168,58 +168,6 @@ const SimpleChart = ({ data, isUp }: SimpleChartProps) => {
   );
 };
 
-// Format time helper
-function SimpleChart({ data, isUp }: SimpleChartProps) {
-  const width = SCREEN_WIDTH - 64;
-  const height = 180;
-  const padding = 10;
-
-  if (!data || data.length === 0) {
-    return (
-      <View style={{ width, height, justifyContent: 'center', alignItems: 'center' }}>
-        <Text style={{ color: '#9CA3AF', fontSize: 14 }}>暂无数据</Text>
-      </View>
-    );
-  }
-
-  const values = data.map(d => d.value);
-  const minVal = Math.min(...values);
-  const maxVal = Math.max(...values);
-  const range = maxVal - minVal || 1;
-
-  const chartWidth = width - padding * 2;
-  const chartHeight = height - padding * 2;
-
-  // Calculate bar width based on data length
-  const barWidth = Math.max(2, Math.min(8, chartWidth / data.length - 1));
-  const gap = (chartWidth - barWidth * data.length) / Math.max(1, data.length - 1);
-
-  const color = isUp ? '#22C55E' : '#EF4444';
-  const bgColor = isUp ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.1)';
-
-  return (
-    <View style={{ width, height, backgroundColor: bgColor, borderRadius: 8, padding, overflow: 'hidden' }}>
-      <View style={{ flex: 1, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' }}>
-        {data.map((d, i) => {
-          const barHeight = Math.max(2, ((d.value - minVal) / range) * chartHeight);
-          return (
-            <View
-              key={i}
-              style={{
-                width: barWidth,
-                height: barHeight,
-                backgroundColor: color,
-                borderRadius: 1,
-                opacity: 0.8,
-              }}
-            />
-          );
-        })}
-      </View>
-    </View>
-  );
-}
-
 export default function PredictScreen() {
   const router = useSafeRouter();
   const [loading, setLoading] = useState(true);
