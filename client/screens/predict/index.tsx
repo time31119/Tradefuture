@@ -17,7 +17,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { FontAwesome6 } from '@expo/vector-icons';
-import { LineChart } from 'react-native-gifted-charts';
+import { Svg, Path, Defs, LinearGradient as SvgLinearGradient, Stop, Rect } from 'react-native-svg';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Screen } from '@/components/Screen';
 import { COLORS } from '@/utils/theme';
@@ -109,6 +109,52 @@ interface BetDetail {
   createdAt: string;
   roundStartTime: number;
   roundEndTime: number;
+}
+
+// SVG Chart component for Web compatibility
+interface SvgChartProps {
+  data: { value: number; label?: string }[];
+  isUp: boolean;
+}
+
+function SvgChart({ data, isUp }: SvgChartProps) {
+  const width = SCREEN_WIDTH - 64;
+  const height = 180;
+  const padding = 10;
+
+  if (!data || data.length === 0) return null;
+
+  const values = data.map(d => d.value);
+  const minVal = Math.min(...values);
+  const maxVal = Math.max(...values);
+  const range = maxVal - minVal || 1;
+
+  const chartWidth = width - padding * 2;
+  const chartHeight = height - padding * 2;
+
+  const points = data.map((d, i) => {
+    const x = padding + (i / (data.length - 1)) * chartWidth;
+    const y = padding + chartHeight - ((d.value - minVal) / range) * chartHeight;
+    return `${x},${y}`;
+  });
+
+  const linePath = `M ${points.join(' L ')}`;
+  const areaPath = `${linePath} L ${width - padding},${height - padding} L ${padding},${height - padding} Z`;
+
+  const color = isUp ? '#22C55E' : '#EF4444';
+
+  return (
+    <Svg width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
+      <Defs>
+        <LinearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
+          <Stop offset="0%" stopColor={color} stopOpacity="0.3" />
+          <Stop offset="100%" stopColor={color} stopOpacity="0" />
+        </LinearGradient>
+      </Defs>
+      <Path d={areaPath} fill="url(#chartGradient)" />
+      <Path d={linePath} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
 }
 
 export default function PredictScreen() {
@@ -657,27 +703,7 @@ export default function PredictScreen() {
                   </TouchableOpacity>
                 ))}
               </View>
-              <LineChart
-                data={priceHistory}
-                width={SCREEN_WIDTH - 64}
-                height={180}
-                spacing={4}
-                initialSpacing={0}
-                color={priceChange >= 0 ? '#22C55E' : '#EF4444'}
-                thickness={2}
-                areaChart
-                hideYAxisText
-                hideDataPoints
-                curved
-                noOfSections={3}
-                yAxisThickness={0}
-                xAxisThickness={1}
-                xAxisColor="rgba(255,255,255,0.1)"
-                rulesColor="rgba(255,255,255,0.05)"
-                backgroundColor="transparent"
-                startOpacity={0.3}
-                endOpacity={0}
-              />
+              <SvgChart data={priceHistory} isUp={priceChange >= 0} />
               <View style={styles.chartFooter}>
                 <View style={styles.chartStatItem}>
                   <Text style={styles.chartStatLabel}>最低</Text>
