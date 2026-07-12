@@ -17,7 +17,6 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { FontAwesome6 } from '@expo/vector-icons';
-import { Svg, Path, Defs, LinearGradient as SvgLinearGradient, Stop, Rect } from 'react-native-svg';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Screen } from '@/components/Screen';
 import { COLORS } from '@/utils/theme';
@@ -112,17 +111,75 @@ interface BetDetail {
 }
 
 // SVG Chart component for Web compatibility
-interface SvgChartProps {
+// Simple chart component using View-based rendering (Web compatible)
+interface SimpleChartProps {
   data: { value: number; label?: string }[];
   isUp: boolean;
 }
 
-function SvgChart({ data, isUp }: SvgChartProps) {
+const SimpleChart = ({ data, isUp }: SimpleChartProps) => {
+  if (!data || data.length === 0) return null;
+
+  const chartHeight = 120;
+  const chartWidth = 300;
+  const values = data.map(d => d.value);
+  const minVal = Math.min(...values);
+  const maxVal = Math.max(...values);
+  const range = maxVal - minVal || 1;
+
+  // Calculate points for the line
+  const points = data.map((d, i) => {
+    const x = (i / (data.length - 1)) * chartWidth;
+    const y = chartHeight - ((d.value - minVal) / range) * chartHeight;
+    return { x, y };
+  });
+
+  // Generate SVG path
+  const pathData = points.map((p, i) => {
+    if (i === 0) return `M ${p.x} ${p.y}`;
+    return `L ${p.x} ${p.y}`;
+  }).join(' ');
+
+  const color = isUp ? '#22C55E' : '#EF4444';
+
+  return (
+    <View style={{ width: '100%', height: chartHeight + 20, marginTop: 10 }}>
+      <svg width="100%" height={chartHeight} viewBox={`0 0 ${chartWidth} ${chartHeight}`} preserveAspectRatio="none">
+        <defs>
+          <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor={color} stopOpacity="0.3" />
+            <stop offset="1" stopColor={color} stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        {/* Area fill */}
+        <path
+          d={`${pathData} L ${chartWidth} ${chartHeight} L 0 ${chartHeight} Z`}
+          fill="url(#chartGradient)"
+        />
+        {/* Line */}
+        <path
+          d={pathData}
+          fill="none"
+          stroke={color}
+          strokeWidth="2"
+        />
+      </svg>
+    </View>
+  );
+};
+
+// Format time helperfunction SimpleChart({ data, isUp }: SimpleChartProps) {
   const width = SCREEN_WIDTH - 64;
   const height = 180;
   const padding = 10;
 
-  if (!data || data.length === 0) return null;
+  if (!data || data.length === 0) {
+    return (
+      <View style={{ width, height, justifyContent: 'center', alignItems: 'center' }}>
+        <Text style={{ color: '#9CA3AF', fontSize: 14 }}>暂无数据</Text>
+      </View>
+    );
+  }
 
   const values = data.map(d => d.value);
   const minVal = Math.min(...values);
@@ -132,28 +189,33 @@ function SvgChart({ data, isUp }: SvgChartProps) {
   const chartWidth = width - padding * 2;
   const chartHeight = height - padding * 2;
 
-  const points = data.map((d, i) => {
-    const x = padding + (i / (data.length - 1)) * chartWidth;
-    const y = padding + chartHeight - ((d.value - minVal) / range) * chartHeight;
-    return `${x},${y}`;
-  });
-
-  const linePath = `M ${points.join(' L ')}`;
-  const areaPath = `${linePath} L ${width - padding},${height - padding} L ${padding},${height - padding} Z`;
+  // Calculate bar width based on data length
+  const barWidth = Math.max(2, Math.min(8, chartWidth / data.length - 1));
+  const gap = (chartWidth - barWidth * data.length) / Math.max(1, data.length - 1);
 
   const color = isUp ? '#22C55E' : '#EF4444';
+  const bgColor = isUp ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.1)';
 
   return (
-    <Svg width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
-      <Defs>
-        <LinearGradient id="chartGradient" x1={0} y1={0} x2={0} y2={1}>
-          <Stop offset="0%" stopColor={color} stopOpacity={0.3} />
-          <Stop offset="100%" stopColor={color} stopOpacity={0} />
-        </LinearGradient>
-      </Defs>
-      <Path d={areaPath} fill="url(#chartGradient)" />
-      <Path d={linePath} fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
+    <View style={{ width, height, backgroundColor: bgColor, borderRadius: 8, padding, overflow: 'hidden' }}>
+      <View style={{ flex: 1, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' }}>
+        {data.map((d, i) => {
+          const barHeight = Math.max(2, ((d.value - minVal) / range) * chartHeight);
+          return (
+            <View
+              key={i}
+              style={{
+                width: barWidth,
+                height: barHeight,
+                backgroundColor: color,
+                borderRadius: 1,
+                opacity: 0.8,
+              }}
+            />
+          );
+        })}
+      </View>
+    </View>
   );
 }
 
@@ -703,7 +765,7 @@ export default function PredictScreen() {
                   </TouchableOpacity>
                 ))}
               </View>
-              <SvgChart data={priceHistory} isUp={priceChange >= 0} />
+              <SimpleChart data={priceHistory} isUp={priceChange >= 0} />
               <View style={styles.chartFooter}>
                 <View style={styles.chartStatItem}>
                   <Text style={styles.chartStatLabel}>最低</Text>
