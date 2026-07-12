@@ -10,7 +10,7 @@ import {
   createWalletConnectProvider 
 } from '@/utils/web3Config';
 
-const EXPO_PUBLIC_BACKEND_BASE_URL = process.env.EXPO_PUBLIC_BACKEND_BASE_URL || 'http://localhost:9091';
+const EXPO_PUBLIC_BACKEND_BASE_URL = process.env.EXPO_PUBLIC_BACKEND_BASE_URL || '';
 
 // 钱包类型
 export type WalletType = 'metamask' | 'walletconnect' | null;

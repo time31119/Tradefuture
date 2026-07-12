@@ -23,7 +23,7 @@ import { VIPSection } from '@/components/VIPSection';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { COLORS } from '@/utils/theme';
 
-const EXPO_PUBLIC_BACKEND_BASE_URL = process.env.EXPO_PUBLIC_BACKEND_BASE_URL || 'http://localhost:9091';
+const EXPO_PUBLIC_BACKEND_BASE_URL = process.env.EXPO_PUBLIC_BACKEND_BASE_URL || '';
 const { width } = Dimensions.get('window');
 
 interface OverviewData {

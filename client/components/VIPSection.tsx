@@ -16,7 +16,7 @@ import { useSafeRouter } from '@/hooks/useSafeRouter';
 import { COLORS } from '@/utils/theme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const EXPO_PUBLIC_BACKEND_BASE_URL = process.env.EXPO_PUBLIC_BACKEND_BASE_URL || 'http://localhost:9091';
+const EXPO_PUBLIC_BACKEND_BASE_URL = process.env.EXPO_PUBLIC_BACKEND_BASE_URL || '';
 
 interface VIPSectionProps {
   isVIP?: boolean;

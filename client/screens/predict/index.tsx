@@ -25,7 +25,7 @@ import { useSafeRouter } from '@/hooks/useSafeRouter';
 import { useFocusEffect } from 'expo-router';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const API_BASE = process.env.EXPO_PUBLIC_BACKEND_BASE_URL || 'http://localhost:9091';
+const API_BASE = process.env.EXPO_PUBLIC_BACKEND_BASE_URL || '';
 
 // Generate or retrieve persistent device ID
 const getDeviceId = async (): Promise<string> => {
